@@ -184,6 +184,8 @@ func TestDaemonStartThenStop(t *testing.T) {
 			t.Logf("daemonCli.Running")
 			//time.Sleep(100 * time.Millisecond)
 			require.False(t, daemonCli.Running())
+			require.NoError(t, testhelper.TcpPortAvailable("1214"))
+			require.NoError(t, testhelper.TcpPortAvailable("1215"))
 		})
 	}
 }
@@ -222,6 +224,8 @@ func TestDaemonReStartThenStop(t *testing.T) {
 			//_ = daemonCli.Stop()
 			//time.Sleep(100*time.Millisecond)
 			require.False(t, daemonCli.Running())
+			require.NoError(t, testhelper.TcpPortAvailable("1214"))
+			require.NoError(t, testhelper.TcpPortAvailable("1215"))
 		})
 	}
 }
@@ -244,6 +248,8 @@ func TestStop(t *testing.T) {
 			require.False(t, daemonCli.Running())
 			require.NoError(t, daemonCli.Stop())
 			require.False(t, daemonCli.Running())
+			require.NoError(t, testhelper.TcpPortAvailable("1214"))
+			require.NoError(t, testhelper.TcpPortAvailable("1215"))
 		})
 	}
 }
