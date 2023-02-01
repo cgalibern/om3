@@ -24,11 +24,12 @@ import (
 func Setup(t *testing.T) (testhelper.Env, func()) {
 	t.Helper()
 	t.Log("Setup...")
-	t.Log("verify available daemon ports...")
+	t.Log("helper Setup verify available daemon ports...")
 	require.NoError(t, testhelper.TcpPortAvailable("1214"))
 	require.NoError(t, testhelper.TcpPortAvailable("1215"))
 	if t.Failed() {
-		t.Fatal("helper setup failed")
+		t.Logf("helper Setup failure")
+		t.Fatal("helper Setup failed")
 	}
 	t.Log("verify available daemon ports [done]")
 	hostname.SetHostnameForGoTest("node1")

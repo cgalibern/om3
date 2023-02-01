@@ -65,12 +65,14 @@ func newClient(serverUrl string) (*client.T, error) {
 }
 
 func setup(t *testing.T) testhelper.Env {
-	t.Log("setup, verify daemon ports availables")
+	t.Log("setup: verify daemon ports available")
 	require.NoError(t, testhelper.TcpPortAvailable("1214"))
 	require.NoError(t, testhelper.TcpPortAvailable("1215"))
 	if t.Failed() {
-		t.Fatal("ports are not available for test")
+		t.Logf("setup failure")
+		t.Fatal("setup: ports are not available for test")
 	}
+	t.Log("setup: verify daemon ports available [ok]")
 	env := testhelper.Setup(t)
 	if !strings.Contains(t.Name(), "NoCluster") {
 		env.InstallFile("./testdata/cluster.conf", "etc/cluster.conf")
@@ -92,7 +94,7 @@ func TestDaemonStartThenStop(t *testing.T) {
 	for name, getUrl := range casesWithMissingConf {
 		t.Run(name, func(t *testing.T) {
 			env := setup(t)
-			_=env
+			_ = env
 			url := getUrl()
 			t.Logf("using url=%s", url)
 			needRawClient := false
