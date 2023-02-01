@@ -24,14 +24,14 @@ import (
 func Setup(t *testing.T) (testhelper.Env, func()) {
 	t.Helper()
 	t.Log("Setup...")
-	t.Log("helper Setup verify available daemon ports...")
+	t.Log("helper Setup verify daemon ports...")
 	require.NoError(t, testhelper.TcpPortAvailable("1214"))
 	require.NoError(t, testhelper.TcpPortAvailable("1215"))
 	if t.Failed() {
 		t.Logf("helper Setup failure")
 		t.Fatal("helper Setup failed")
 	}
-	t.Log("verify available daemon ports [done]")
+	t.Log("helper Setup verify daemon ports [done]")
 	hostname.SetHostnameForGoTest("node1")
 	env := testhelper.Setup(t)
 	t.Logf("Starting daemon with osvc_root_path=%s", env.Root)
@@ -64,7 +64,15 @@ func Setup(t *testing.T) (testhelper.Env, func()) {
 		err := runDaemon.Stop()
 		assert.NoError(t, err, "Stop Daemon error")
 		t.Logf("Stopped daemon with osvc_root_path=%s", env.Root)
+		time.Sleep(250*time.Millisecond)
 		hostname.SetHostnameForGoTest("")
+		t.Log("helper Setup cancel verify daemon ports after...")
+		require.NoError(t, testhelper.TcpPortAvailable("1214"))
+		require.NoError(t, testhelper.TcpPortAvailable("1215"))
+		if t.Failed() {
+			t.Logf("helper Setup cancel failure")
+			t.Fatal("helper helper Setup cancel failed")
+		}
 	}
 
 	waitRunningDuration := 5 * time.Millisecond

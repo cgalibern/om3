@@ -19,12 +19,12 @@ func Test_Setup(t *testing.T) {
 	if runtime.GOOS != "darwin" && os.Getuid() != 0 {
 		t.Skip("skipped for non root user")
 	}
-	t.Logf("Setup...")
-	env, cancel := Setup(t)
+	_, cancel := Setup(t)
 	defer cancel()
+	t.Log("verify daemon ports release after test")
 	require.NoError(t, testhelper.TcpPortAvailable("1214"))
 	require.NoError(t, testhelper.TcpPortAvailable("1215"))
-	t.Logf("setup is done on env.Root: %s", env.Root)
+	t.Log("verify daemon ports release after test [done]")
 }
 
 func Test_GetClient(t *testing.T) {
@@ -65,8 +65,10 @@ func Test_GetDaemonStatus(t *testing.T) {
 		_, ok := cData.Cluster.Node["node1"].Instance[p.String()]
 		assert.Truef(t, ok, "unable to find node1 instance %s", p)
 	})
+	t.Log("verify daemon ports release after test")
 	require.NoError(t, testhelper.TcpPortAvailable("1214"))
 	require.NoError(t, testhelper.TcpPortAvailable("1215"))
+	t.Log("verify daemon ports release after test [done]")
 }
 
 func TestMain(m *testing.M) {

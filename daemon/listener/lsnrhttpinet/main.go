@@ -85,7 +85,7 @@ func (t *T) stop() error {
 		t.log.Error().Err(err).Msg("listener Close failure")
 		return err
 	}
-	t.log.Info().Msg("listener Closed")
+	t.log.Info().Msg("listener closed")
 	return nil
 }
 
