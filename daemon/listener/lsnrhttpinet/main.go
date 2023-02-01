@@ -112,6 +112,11 @@ func (t *T) start(ctx context.Context) error {
 		} else {
 			t.log.Error().Err(err).Msg("listener ends with unexpected error ")
 		}
+		if t.listener != nil {
+			if err := t.listener.Close(); err != nil {
+				t.log.Error().Err(err).Msg("listener close")
+			}
+		}
 		t.log.Info().Msg("listener stopped")
 	}()
 	<-started

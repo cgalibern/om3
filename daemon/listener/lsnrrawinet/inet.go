@@ -27,7 +27,10 @@ func (t *T) start(ctx context.Context) error {
 	listener, err := net.Listen("tcp", t.addr)
 	if err != nil {
 		t.log.Error().Err(err).Msg("listen failed")
-		return err
+		time.Sleep(time.Second)
+		if listener, err = net.Listen("tcp", t.addr); err != nil {
+			return err
+		}
 	}
 	mux := routeraw.New(routehttp.New(ctx, false), t.log, 5*time.Second)
 	c := make(chan bool)

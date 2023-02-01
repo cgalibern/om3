@@ -33,7 +33,10 @@ func (t *T) start(ctx context.Context) error {
 	listener, err := net.Listen("unix", t.addr)
 	if err != nil {
 		t.log.Error().Err(err).Msg("listen failed")
-		return err
+		time.Sleep(time.Second)
+		if listener, err = net.Listen("unix", t.addr); err != nil {
+			return err
+		}
 	}
 	c := make(chan bool)
 	go func() {
