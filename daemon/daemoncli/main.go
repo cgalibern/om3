@@ -27,7 +27,7 @@ var (
 	lockPath           = "/tmp/locks/main"
 	lockTimeout        = 60 * time.Second
 	WaitRunningTimeout = 20 * time.Second
-	WaitRunningDelay   = 250 * time.Millisecond
+	WaitRunningDelay   = 500 * time.Millisecond
 	WaitStoppedTimeout = 4 * time.Second
 	WaitStoppedDelay   = 250 * time.Millisecond
 )

@@ -22,8 +22,16 @@ import (
 )
 
 func Setup(t *testing.T) (testhelper.Env, func()) {
-	hostname.SetHostnameForGoTest("node1")
 	t.Helper()
+	t.Log("Setup...")
+	t.Log("verify available daemon ports...")
+	require.NoError(t, testhelper.TcpPortAvailable("1214"))
+	require.NoError(t, testhelper.TcpPortAvailable("1215"))
+	if t.Failed() {
+		t.Fatal("helper setup failed")
+	}
+	t.Log("verify available daemon ports [done]")
+	hostname.SetHostnameForGoTest("node1")
 	env := testhelper.Setup(t)
 	t.Logf("Starting daemon with osvc_root_path=%s", env.Root)
 	rawconfig.Load(map[string]string{
@@ -59,6 +67,7 @@ func Setup(t *testing.T) (testhelper.Env, func()) {
 	}
 
 	waitRunningDuration := 5 * time.Millisecond
+	//waitRunningDuration := 50 * time.Millisecond
 	t.Logf("wait %s", waitRunningDuration)
 	time.Sleep(waitRunningDuration)
 

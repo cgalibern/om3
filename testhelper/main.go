@@ -1,6 +1,8 @@
 package testhelper
 
 import (
+	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"testing"
@@ -87,4 +89,14 @@ func Main(m *testing.M, execute func([]string)) {
 		os.Setenv("LANG", "C.UTF-8")
 		execute(os.Args[1:])
 	}
+}
+
+func TcpPortAvailable(port string) error {
+	ln, err := net.Listen("tcp", ":"+port)
+	if err == nil {
+		defer func(c io.Closer) {
+			_ = c.Close()
+		}(ln)
+	}
+	return err
 }

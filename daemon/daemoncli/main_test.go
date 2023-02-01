@@ -64,7 +64,13 @@ func newClient(serverUrl string) (*client.T, error) {
 	return client.New(clientOptions...)
 }
 
-func setup(t *testing.T) {
+func setup(t *testing.T) testhelper.Env {
+	t.Log("setup, verify daemon ports availables")
+	require.NoError(t, testhelper.TcpPortAvailable("1214"))
+	require.NoError(t, testhelper.TcpPortAvailable("1215"))
+	if t.Failed() {
+		t.Fatal("ports are not available for test")
+	}
 	env := testhelper.Setup(t)
 	if !strings.Contains(t.Name(), "NoCluster") {
 		env.InstallFile("./testdata/cluster.conf", "etc/cluster.conf")
@@ -76,6 +82,7 @@ func setup(t *testing.T) {
 		env.InstallFile("./testdata/cert-cluster1.conf", "etc/namespaces/system/sec/cert-cluster1.conf")
 	}
 	rawconfig.LoadSections()
+	return env
 }
 
 func TestDaemonStartThenStop(t *testing.T) {
@@ -84,7 +91,8 @@ func TestDaemonStartThenStop(t *testing.T) {
 	}
 	for name, getUrl := range casesWithMissingConf {
 		t.Run(name, func(t *testing.T) {
-			setup(t)
+			env := setup(t)
+			_=env
 			url := getUrl()
 			t.Logf("using url=%s", url)
 			needRawClient := false
@@ -116,11 +124,12 @@ func TestDaemonStartThenStop(t *testing.T) {
 			t.Logf("daemonCli.Running")
 			require.True(t, daemonCli.Running())
 
+			//time.Sleep(250*time.Millisecond)
 			// TODO move test get node events to other location asap
 			t.Logf("get node events")
 			readEv, err := cli.NewGetEvents().
 				SetLimit(5).
-				SetDuration(250 * time.Millisecond).
+				SetDuration(2 * time.Second).
 				GetReader()
 			require.NoError(t, err)
 			defer func() {
@@ -139,6 +148,7 @@ func TestDaemonStartThenStop(t *testing.T) {
 			require.Greaterf(t, len(events), 0, "no events returned !")
 
 			t.Logf("get daemon status")
+			//time.Sleep(1500 * time.Millisecond)
 			var b []byte
 			b, err = cli.NewGetDaemonStatus().Do()
 			require.NoError(t, err)
@@ -162,9 +172,15 @@ func TestDaemonStartThenStop(t *testing.T) {
 				require.Truef(t, ok, "unable to detect object %s", objectName)
 			}
 
+			//c := exec.Command("umount", path.Join(env.Root, "var", "certs"))
+			//t.Logf("exec %s", c)
+			//err = c.Run()
+			//require.Nil(t, err)
 			t.Logf("daemonCli.Stop...")
 			require.NoError(t, daemonCli.Stop())
+			//_ = daemonCli.Stop()
 			t.Logf("daemonCli.Running")
+			//time.Sleep(100 * time.Millisecond)
 			require.False(t, daemonCli.Running())
 		})
 	}
@@ -201,6 +217,8 @@ func TestDaemonReStartThenStop(t *testing.T) {
 			require.NoError(t, daemonCli.WaitRunning())
 			require.True(t, daemonCli.Running())
 			require.NoError(t, daemonCli.Stop())
+			//_ = daemonCli.Stop()
+			//time.Sleep(100*time.Millisecond)
 			require.False(t, daemonCli.Running())
 		})
 	}
@@ -232,11 +250,11 @@ func getMaxDurationForCertCreated(name string) time.Duration {
 	// give more time to gen cert
 	maxDurationForCerts := certDelay
 	if strings.Contains(name, "NoSecCa") {
-		maxDurationForCerts = maxDurationForCerts * 50
+		maxDurationForCerts = maxDurationForCerts * 150
 	}
 	if strings.Contains(name, "NoSecCert") {
 		// give more time to gen cert
-		maxDurationForCerts = maxDurationForCerts * 50
+		maxDurationForCerts = maxDurationForCerts * 150
 	}
 	return maxDurationForCerts
 }
