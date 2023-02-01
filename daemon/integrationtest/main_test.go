@@ -22,6 +22,8 @@ func Test_Setup(t *testing.T) {
 	t.Logf("Setup...")
 	env, cancel := Setup(t)
 	defer cancel()
+	require.NoError(t, testhelper.TcpPortAvailable("1214"))
+	require.NoError(t, testhelper.TcpPortAvailable("1215"))
 	t.Logf("setup is done on env.Root: %s", env.Root)
 }
 
@@ -63,6 +65,8 @@ func Test_GetDaemonStatus(t *testing.T) {
 		_, ok := cData.Cluster.Node["node1"].Instance[p.String()]
 		assert.Truef(t, ok, "unable to find node1 instance %s", p)
 	})
+	require.NoError(t, testhelper.TcpPortAvailable("1214"))
+	require.NoError(t, testhelper.TcpPortAvailable("1215"))
 }
 
 func TestMain(m *testing.M) {
