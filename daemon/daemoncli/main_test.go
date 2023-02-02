@@ -5,6 +5,7 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -90,6 +91,7 @@ func TestDaemonStartThenStop(t *testing.T) {
 	}
 	for name, getUrl := range casesWithMissingConf {
 		t.Run(name, func(t *testing.T) {
+			wg := sync.WaitGroup{}
 			env := setup(t)
 			_ = env
 			url := getUrl()
@@ -106,10 +108,12 @@ func TestDaemonStartThenStop(t *testing.T) {
 			t.Logf("daemonCli.Running")
 			require.False(t, daemonCli.Running())
 			goStart := make(chan bool)
+			wg.Add(1)
 			go func() {
 				t.Logf("daemonCli.Start...")
 				goStart <- true
 				require.NoError(t, daemonCli.Start())
+				wg.Done()
 			}()
 			<-goStart
 			time.Sleep(50 * time.Millisecond)
@@ -181,6 +185,7 @@ func TestDaemonStartThenStop(t *testing.T) {
 			t.Logf("daemonCli.Running")
 			//time.Sleep(100 * time.Millisecond)
 			require.False(t, daemonCli.Running())
+			wg.Wait()
 			require.NoError(t, testhelper.DaemonPorts(t, fmt.Sprintf("<- %s", t.Name())))
 		})
 	}
@@ -192,6 +197,7 @@ func TestDaemonReStartThenStop(t *testing.T) {
 	}
 	for name, getUrl := range cases {
 		t.Run(name, func(t *testing.T) {
+			wg := sync.WaitGroup{}
 			setup(t)
 
 			url := getUrl()
@@ -206,9 +212,14 @@ func TestDaemonReStartThenStop(t *testing.T) {
 			}
 			daemonCli := daemoncli.New(cli)
 			require.False(t, daemonCli.Running())
+			goReStart := make(chan bool)
+			wg.Add(1)
 			go func() {
+				goReStart <- true
 				require.NoError(t, daemonCli.ReStart())
+				wg.Done()
 			}()
+			<-goReStart
 			if needRawClient {
 				t.Logf("reverting fallback client urlUxRaw")
 				cli, err = recreateClient(t, url)
@@ -220,6 +231,7 @@ func TestDaemonReStartThenStop(t *testing.T) {
 			//_ = daemonCli.Stop()
 			//time.Sleep(100*time.Millisecond)
 			require.False(t, daemonCli.Running())
+			wg.Wait()
 			require.NoError(t, testhelper.DaemonPorts(t, fmt.Sprintf("<- %s", t.Name())))
 		})
 	}
