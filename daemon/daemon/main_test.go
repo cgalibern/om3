@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -13,6 +15,7 @@ import (
 	"opensvc.com/opensvc/daemon/daemon"
 	"opensvc.com/opensvc/daemon/routinehelper"
 	"opensvc.com/opensvc/testhelper"
+	"opensvc.com/opensvc/util/file"
 )
 
 func TestMain(m *testing.M) {
@@ -37,7 +40,7 @@ func TestDaemon(t *testing.T) {
 		t.Fatal("-> TestDaemon DaemonPorts")
 	}
 	var main *daemon.T
-	setup(t)
+	env := setup(t)
 
 	t.Log("New")
 	main = daemon.New(
@@ -102,4 +105,26 @@ func TestDaemon(t *testing.T) {
 	require.Equalf(t, 0, main.TraceRDump().Count, "Daemon routines should be stopped, found %#v", main.TraceRDump())
 
 	require.NoError(t, testhelper.DaemonPorts(t, fmt.Sprintf("<- %s", t.Name())))
+
+	certPath := path.Join(env.Root, "var", "certs")
+	if !file.ExistsAndDir(certPath) {
+		t.Logf("%s removed", certPath)
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	ticker := time.NewTicker(250 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		t.Logf("waiting for %s removed", certPath)
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if !file.ExistsAndDir(certPath) {
+				t.Logf("%s removed", certPath)
+				return
+			}
+		}
+	}
 }
