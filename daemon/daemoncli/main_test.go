@@ -182,10 +182,11 @@ func TestDaemonStartThenStop(t *testing.T) {
 			t.Logf("daemonCli.Stop...")
 			require.NoError(t, daemonCli.Stop())
 			//_ = daemonCli.Stop()
+			t.Logf("waiting start go routine done")
+			wg.Wait()
 			t.Logf("daemonCli.Running")
 			//time.Sleep(100 * time.Millisecond)
 			require.False(t, daemonCli.Running())
-			wg.Wait()
 			require.NoError(t, testhelper.DaemonPorts(t, fmt.Sprintf("<- %s", t.Name())))
 		})
 	}
