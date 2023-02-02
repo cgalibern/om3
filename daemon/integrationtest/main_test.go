@@ -50,7 +50,10 @@ func Test_GetDaemonStatus(t *testing.T) {
 			assert.Truef(t, ok, "unable to find node1 instance %s", p)
 			t.Logf("instance %s config: %+v", p, inst.Config)
 			if p == "cluster" {
-				require.Equal(t, []string{"node1"}, inst.Config.Scope)
+				require.NotNilf(t, inst.Config, "instance config should be defined for %s", p)
+				if inst.Config != nil {
+					require.Equal(t, []string{"node1"}, inst.Config.Scope)
+				}
 			}
 		})
 	}
