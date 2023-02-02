@@ -3,7 +3,6 @@ package integrationtest
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
@@ -23,49 +22,9 @@ import (
 	"opensvc.com/opensvc/util/hostname"
 )
 
-func RunCmd(t *testing.T, name string, args ...string) {
-	cmd := exec.Command(name, args...)
-	b, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Logf("%s error %s\n%s", cmd, err, b)
-	} else {
-		t.Logf("%s\n%s", cmd, b)
-	}
-}
-
-func Trace(t *testing.T) {
-	RunCmd(t, "ps", "fax")
-	RunCmd(t, "netstat", "-petulan")
-	pid := os.Getpid()
-	RunCmd(t, "ls", "-l", fmt.Sprintf("/proc/%d/fd", pid))
-}
-
-func DaemonPorts(t *testing.T, name string) error {
-	t.Logf("Verify daemon ports [%s]", name)
-	Trace(t)
-	var delay time.Duration
-	for _, port := range []string{"1214", "1215"} {
-		if err := testhelper.TcpPortAvailable(port); err != nil {
-			t.Logf("Verify daemon ports [%s] failed for port %s '%s' wait delay then check again", name, port, err)
-			Trace(t)
-			delay = 5 * time.Second
-		}
-	}
-	time.Sleep(delay)
-	for _, port := range []string{"1214", "1215"} {
-		if err := testhelper.TcpPortAvailable(port); err != nil {
-			t.Logf("Verify daemon ports [%s] failed for port %s '%s'", name, port, err)
-			Trace(t)
-			return err
-		}
-	}
-	t.Logf("Verify daemon ports [%s] [done]", name)
-	return nil
-}
-
 func Setup(t *testing.T) (testhelper.Env, func()) {
 	t.Helper()
-	require.NoError(t, DaemonPorts(t, "-> Setup"))
+	require.NoError(t, testhelper.DaemonPorts(t, "-> Setup"))
 	if t.Failed() {
 		t.Fatal("-> Setup DaemonPorts")
 	}
@@ -103,7 +62,7 @@ func Setup(t *testing.T) (testhelper.Env, func()) {
 		t.Logf("Stopped daemon with osvc_root_path=%s", env.Root)
 		time.Sleep(250 * time.Millisecond)
 		hostname.SetHostnameForGoTest("")
-		require.NoError(t, DaemonPorts(t, fmt.Sprintf("<- %s", t.Name())))
+		require.NoError(t, testhelper.DaemonPorts(t, fmt.Sprintf("<- %s", t.Name())))
 	}
 
 	//waitRunningDuration := 5 * time.Millisecond
