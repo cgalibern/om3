@@ -2,7 +2,6 @@ package testhelper
 
 import (
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -84,22 +83,20 @@ func Main(m *testing.M, execute func([]string)) {
 	switch os.Getenv("GO_TEST_MODE") {
 	case "":
 		// test mode
-		os.Setenv("GO_TEST_MODE", "off")
+		_ = os.Setenv("GO_TEST_MODE", "off")
 		os.Exit(m.Run())
 
 	case "off":
 		// test bypass mode
-		os.Setenv("LANG", "C.UTF-8")
+		_ = os.Setenv("LANG", "C.UTF-8")
 		execute(os.Args[1:])
 	}
 }
 
 func TcpPortAvailable(port string) error {
 	ln, err := net.Listen("tcp", ":"+port)
-	if err == nil {
-		defer func(c io.Closer) {
-			_ = c.Close()
-		}(ln)
+	if ln != nil {
+		_ = ln.Close()
 	}
 	return err
 }
