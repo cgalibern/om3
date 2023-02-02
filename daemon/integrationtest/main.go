@@ -42,6 +42,7 @@ func Trace(t *testing.T) {
 
 func DaemonPorts(t *testing.T, name string) error {
 	t.Logf("Verify daemon ports [%s]", name)
+	Trace(t)
 	var delay time.Duration
 	for _, port := range []string{"1214", "1215"} {
 		if err := testhelper.TcpPortAvailable(port); err != nil {

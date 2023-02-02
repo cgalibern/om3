@@ -2,8 +2,11 @@ package daemon_test
 
 import (
 	"context"
+	"fmt"
 	"os"
+	"os/exec"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -27,9 +30,53 @@ func setup(t *testing.T) testhelper.Env {
 	return env
 }
 
+func RunCmd(t *testing.T, name string, args ...string) {
+	cmd := exec.Command(name, args...)
+	b, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Logf("%s error %s\n%s", cmd, err, b)
+	} else {
+		t.Logf("%s\n%s", cmd, b)
+	}
+}
+
+func Trace(t *testing.T) {
+	RunCmd(t, "ps", "fax")
+	RunCmd(t, "netstat", "-petulan")
+	pid := os.Getpid()
+	RunCmd(t, "ls", "-l", fmt.Sprintf("/proc/%d/fd", pid))
+}
+
+func DaemonPorts(t *testing.T, name string) error {
+	t.Logf("Verify daemon ports [%s]", name)
+	Trace(t)
+	var delay time.Duration
+	for _, port := range []string{"1214", "1215"} {
+		if err := testhelper.TcpPortAvailable(port); err != nil {
+			t.Logf("Verify daemon ports [%s] failed for port %s '%s' wait delay then check again", name, port, err)
+			Trace(t)
+			delay = 5 * time.Second
+		}
+	}
+	time.Sleep(delay)
+	for _, port := range []string{"1214", "1215"} {
+		if err := testhelper.TcpPortAvailable(port); err != nil {
+			t.Logf("Verify daemon ports [%s] failed for port %s '%s'", name, port, err)
+			Trace(t)
+			return err
+		}
+	}
+	t.Logf("Verify daemon ports [%s] [done]", name)
+	return nil
+}
+
 func TestDaemon(t *testing.T) {
 	if os.Getuid() != 0 {
 		t.Skip("skipped for non root user")
+	}
+	require.NoError(t, DaemonPorts(t, fmt.Sprintf("-> %s", t.Name())))
+	if t.Failed() {
+		t.Fatal("-> TestDaemon DaemonPorts")
 	}
 	var main *daemon.T
 	setup(t)
@@ -95,4 +142,6 @@ func TestDaemon(t *testing.T) {
 	require.False(t, main.Enabled(), "The daemon should not be Enabled after Stop")
 	require.False(t, main.Running(), "The daemon should not be Running after Stop")
 	require.Equalf(t, 0, main.TraceRDump().Count, "Daemon routines should be stopped, found %#v", main.TraceRDump())
+
+	require.NoError(t, DaemonPorts(t, fmt.Sprintf("<- %s", t.Name())))
 }
