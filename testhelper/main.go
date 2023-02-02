@@ -95,10 +95,10 @@ func Main(m *testing.M, execute func([]string)) {
 
 func TcpPortAvailable(port string) error {
 	ln, err := net.Listen("tcp", ":"+port)
-	if ln != nil {
-		_ = ln.Close()
+	if err != nil {
+		return err
 	}
-	return err
+	return ln.Close()
 }
 
 func RunCmd(t *testing.T, name string, args ...string) {
