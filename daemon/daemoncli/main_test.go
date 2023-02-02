@@ -135,9 +135,6 @@ func TestDaemonStartThenStop(t *testing.T) {
 				SetDuration(2 * time.Second).
 				GetReader()
 			require.NoError(t, err)
-			defer func() {
-				_ = readEv.Close()
-			}()
 			events := make([]event.Event, 0)
 			for {
 				if ev, err := readEv.Read(); err != nil {
@@ -147,6 +144,9 @@ func TestDaemonStartThenStop(t *testing.T) {
 					t.Logf("read event %#v", *ev)
 					events = append(events, *ev)
 				}
+			}
+			if err := readEv.Close(); err != nil {
+				t.Logf("readEv.Close err:%s", err)
 			}
 			require.Greaterf(t, len(events), 0, "no events returned !")
 
@@ -185,8 +185,16 @@ func TestDaemonStartThenStop(t *testing.T) {
 			t.Logf("waiting start go routine done")
 			wg.Wait()
 			t.Logf("daemonCli.Running")
-			//time.Sleep(100 * time.Millisecond)
 			require.False(t, daemonCli.Running())
+
+			for i:=0; i<5; i++ {
+				time.Sleep(time.Second)
+				t.Logf("paranoid daemonCli.Stop again...[%s/5]", i)
+				require.NoError(t, daemonCli.Stop())
+				t.Logf("paranoid daemonCli.Running...[%d/5]", i)
+				require.False(t, daemonCli.Running())
+			}
+
 			require.NoError(t, testhelper.DaemonPorts(t, fmt.Sprintf("<- %s", t.Name())))
 		})
 	}
@@ -231,8 +239,19 @@ func TestDaemonReStartThenStop(t *testing.T) {
 			require.NoError(t, daemonCli.Stop())
 			//_ = daemonCli.Stop()
 			//time.Sleep(100*time.Millisecond)
-			require.False(t, daemonCli.Running())
+			t.Logf("waiting start go routine done")
 			wg.Wait()
+			t.Logf("daemonCli.Running")
+			require.False(t, daemonCli.Running())
+
+			for i:=0; i<5; i++ {
+				time.Sleep(time.Second)
+				t.Logf("paranoid daemonCli.Stop again...[%s/5]", i)
+				require.NoError(t, daemonCli.Stop())
+				t.Logf("paranoid daemonCli.Running...[%d/5]", i)
+				require.False(t, daemonCli.Running())
+			}
+
 			require.NoError(t, testhelper.DaemonPorts(t, fmt.Sprintf("<- %s", t.Name())))
 		})
 	}
@@ -256,6 +275,15 @@ func TestStop(t *testing.T) {
 			require.False(t, daemonCli.Running())
 			require.NoError(t, daemonCli.Stop())
 			require.False(t, daemonCli.Running())
+
+			for i:=0; i<5; i++ {
+				time.Sleep(time.Second)
+				t.Logf("paranoid daemonCli.Stop again...[%s/5]", i)
+				require.NoError(t, daemonCli.Stop())
+				t.Logf("paranoid daemonCli.Running...[%d/5]", i)
+				require.False(t, daemonCli.Running())
+			}
+
 			require.NoError(t, testhelper.DaemonPorts(t, fmt.Sprintf("<- %s", t.Name())))
 		})
 	}
