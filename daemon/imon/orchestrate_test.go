@@ -158,7 +158,7 @@ func Test_Orchestrate_HA(t *testing.T) {
 			err = icfg.Start(setup.Ctx, p, filepath.Join(setup.Env.Root, cfgEtcFile), make(chan any, 20), Factory)
 			require.Nil(t, err)
 
-			time.Sleep(5 * time.Millisecond)
+			time.Sleep(150 * time.Millisecond)
 
 			evImon := <-evC
 			t.Logf("crm calls: %v", crm.calls)
