@@ -1,7 +1,9 @@
 package integrationtest
 
 import (
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
@@ -21,17 +23,51 @@ import (
 	"opensvc.com/opensvc/util/hostname"
 )
 
+func RunCmd(t *testing.T, name string, args ...string) {
+	cmd := exec.Command(name, args...)
+	b, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Logf("%s error %s\n%s", cmd, err, b)
+	} else {
+		t.Logf("%s\n%s", cmd, b)
+	}
+}
+
+func Trace(t *testing.T) {
+	RunCmd(t, "ps", "fax")
+	RunCmd(t, "netstat", "-petulan")
+	pid := os.Getpid()
+	RunCmd(t, "ls", "-l", fmt.Sprintf("/proc/%d/fd", pid))
+}
+
+func DaemonPorts(t *testing.T, name string) error {
+	t.Logf("Verify daemon ports [%s]", name)
+	var delay time.Duration
+	for _, port := range []string{"1214", "1215"} {
+		if err := testhelper.TcpPortAvailable(port); err != nil {
+			t.Logf("Verify daemon ports [%s] failed for port %s '%s' wait delay then check again", name, port, err)
+			Trace(t)
+			delay = 5 * time.Second
+		}
+	}
+	time.Sleep(delay)
+	for _, port := range []string{"1214", "1215"} {
+		if err := testhelper.TcpPortAvailable(port); err != nil {
+			t.Logf("Verify daemon ports [%s] failed for port %s '%s'", name, port, err)
+			Trace(t)
+			return err
+		}
+	}
+	t.Logf("Verify daemon ports [%s] [done]", name)
+	return nil
+}
+
 func Setup(t *testing.T) (testhelper.Env, func()) {
 	t.Helper()
-	t.Log("Setup...")
-	t.Log("helper Setup verify daemon ports...")
-	require.NoError(t, testhelper.TcpPortAvailable("1214"))
-	require.NoError(t, testhelper.TcpPortAvailable("1215"))
+	require.NoError(t, DaemonPorts(t, "-> Setup"))
 	if t.Failed() {
-		t.Logf("helper Setup failure")
-		t.Fatal("helper Setup failed")
+		t.Fatal("-> Setup DaemonPorts")
 	}
-	t.Log("helper Setup verify daemon ports [done]")
 	hostname.SetHostnameForGoTest("node1")
 	env := testhelper.Setup(t)
 	t.Logf("Starting daemon with osvc_root_path=%s", env.Root)
@@ -64,19 +100,13 @@ func Setup(t *testing.T) (testhelper.Env, func()) {
 		err := runDaemon.Stop()
 		assert.NoError(t, err, "Stop Daemon error")
 		t.Logf("Stopped daemon with osvc_root_path=%s", env.Root)
-		time.Sleep(250*time.Millisecond)
+		time.Sleep(250 * time.Millisecond)
 		hostname.SetHostnameForGoTest("")
-		t.Log("helper Setup cancel verify daemon ports after...")
-		require.NoError(t, testhelper.TcpPortAvailable("1214"))
-		require.NoError(t, testhelper.TcpPortAvailable("1215"))
-		if t.Failed() {
-			t.Logf("helper Setup cancel failure")
-			t.Fatal("helper helper Setup cancel failed")
-		}
+		require.NoError(t, DaemonPorts(t, fmt.Sprintf("<- %s", t.Name())))
 	}
 
-	waitRunningDuration := 5 * time.Millisecond
-	//waitRunningDuration := 50 * time.Millisecond
+	//waitRunningDuration := 5 * time.Millisecond
+	waitRunningDuration := 50 * time.Millisecond
 	t.Logf("wait %s", waitRunningDuration)
 	time.Sleep(waitRunningDuration)
 

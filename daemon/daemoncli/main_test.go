@@ -1,7 +1,9 @@
 package daemoncli_test
 
 import (
+	"fmt"
 	"os"
+	"os/exec"
 	"runtime"
 	"strings"
 	"testing"
@@ -64,15 +66,50 @@ func newClient(serverUrl string) (*client.T, error) {
 	return client.New(clientOptions...)
 }
 
-func setup(t *testing.T) testhelper.Env {
-	t.Log("setup: verify daemon ports available")
-	require.NoError(t, testhelper.TcpPortAvailable("1214"))
-	require.NoError(t, testhelper.TcpPortAvailable("1215"))
-	if t.Failed() {
-		t.Logf("setup failure")
-		t.Fatal("setup: ports are not available for test")
+func RunCmd(t *testing.T, name string, args ...string) {
+	cmd := exec.Command(name, args...)
+	b, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Logf("%s error %s\n%s", cmd, err, b)
+	} else {
+		t.Logf("%s\n%s", cmd, b)
 	}
-	t.Log("setup: verify daemon ports available [done]")
+}
+
+func Trace(t *testing.T) {
+	RunCmd(t, "ps", "fax")
+	RunCmd(t, "netstat", "-petulan")
+	pid := os.Getpid()
+	RunCmd(t, "ls", "-l", fmt.Sprintf("/proc/%d/fd", pid))
+}
+
+func DaemonPorts(t *testing.T, name string) error {
+	t.Logf("Verify daemon ports [%s]", name)
+	var delay time.Duration
+	for _, port := range []string{"1214", "1215"} {
+		if err := testhelper.TcpPortAvailable(port); err != nil {
+			t.Logf("Verify daemon ports [%s] failed for port %s '%s' wait delay then check again", name, port, err)
+			Trace(t)
+			delay = 5 * time.Second
+		}
+	}
+	time.Sleep(delay)
+	for _, port := range []string{"1214", "1215"} {
+		if err := testhelper.TcpPortAvailable(port); err != nil {
+			t.Logf("Verify daemon ports [%s] failed for port %s '%s'", name, port, err)
+			Trace(t)
+			return err
+		}
+	}
+	t.Logf("Verify daemon ports [%s] [done]", name)
+	return nil
+}
+
+func setup(t *testing.T) testhelper.Env {
+	require.NoError(t, DaemonPorts(t, "-> setup"))
+	if t.Failed() {
+		t.Fatal("-> setup DaemonPorts")
+	}
 	env := testhelper.Setup(t)
 	if !strings.Contains(t.Name(), "NoCluster") {
 		env.InstallFile("./testdata/cluster.conf", "etc/cluster.conf")
@@ -184,10 +221,7 @@ func TestDaemonStartThenStop(t *testing.T) {
 			t.Logf("daemonCli.Running")
 			//time.Sleep(100 * time.Millisecond)
 			require.False(t, daemonCli.Running())
-			t.Log("verify daemon ports release after test")
-			require.NoError(t, testhelper.TcpPortAvailable("1214"))
-			require.NoError(t, testhelper.TcpPortAvailable("1215"))
-			t.Log("verify daemon ports release after test [done]")
+			require.NoError(t, DaemonPorts(t, fmt.Sprintf("<- %s", t.Name())))
 		})
 	}
 }
@@ -226,10 +260,7 @@ func TestDaemonReStartThenStop(t *testing.T) {
 			//_ = daemonCli.Stop()
 			//time.Sleep(100*time.Millisecond)
 			require.False(t, daemonCli.Running())
-			t.Log("verify daemon ports release after test")
-			require.NoError(t, testhelper.TcpPortAvailable("1214"))
-			require.NoError(t, testhelper.TcpPortAvailable("1215"))
-			t.Log("verify daemon ports release after test [done]")
+			require.NoError(t, DaemonPorts(t, fmt.Sprintf("<- %s", t.Name())))
 		})
 	}
 }
@@ -252,10 +283,7 @@ func TestStop(t *testing.T) {
 			require.False(t, daemonCli.Running())
 			require.NoError(t, daemonCli.Stop())
 			require.False(t, daemonCli.Running())
-			t.Log("verify daemon ports release after test")
-			require.NoError(t, testhelper.TcpPortAvailable("1214"))
-			require.NoError(t, testhelper.TcpPortAvailable("1215"))
-			t.Log("verify daemon ports release after test [done]")
+			require.NoError(t, DaemonPorts(t, fmt.Sprintf("<- %s", t.Name())))
 		})
 	}
 }

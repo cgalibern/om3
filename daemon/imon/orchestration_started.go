@@ -187,8 +187,6 @@ func (o *imon) isLocalStarted() bool {
 		return true
 	case status.StandbyUp:
 		return true
-	case status.Undef:
-		return false
 	default:
 		return false
 	}
