@@ -30,6 +30,7 @@ import (
 	"github.com/opensvc/om3/daemon/routinehelper"
 	"github.com/opensvc/om3/daemon/scheduler"
 	"github.com/opensvc/om3/daemon/subdaemon"
+	"github.com/opensvc/om3/util/capabilities"
 	"github.com/opensvc/om3/util/funcopt"
 	"github.com/opensvc/om3/util/hostname"
 	"github.com/opensvc/om3/util/pubsub"
@@ -172,12 +173,20 @@ func (t *T) MainStart(ctx context.Context) error {
 
 	<-started
 
+	if err := capabilities.Scan(); err != nil {
+		return err
+	}
+	t.log.Info().Strs("capabilities", capabilities.Data()).Msg("rescanned node capabilities")
+	t.log.Info().Msg("ccfg starting")
 	if err := ccfg.Start(t.ctx); err != nil {
 		return err
 	}
+	t.log.Info().Msg("ccfg started")
+	t.log.Info().Msg("cstat starting")
 	if err := cstat.Start(t.ctx); err != nil {
 		return err
 	}
+	t.log.Info().Msg("cstat starting")
 
 	if ccfg.Get().Name == "" {
 		panic("cluster name read from ccfg is empty")
