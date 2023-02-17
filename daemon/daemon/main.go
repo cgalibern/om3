@@ -150,7 +150,7 @@ func (t *T) MainStart(ctx context.Context) error {
 	}(ctx)
 
 	t.ctx = daemonctx.WithDaemon(t.ctx, t)
-	t.ctx = daemonctx.WithHBSendQ(t.ctx, make(chan hbtype.Msg))
+	t.ctx = daemonctx.WithHBSendQ(t.ctx, make(chan hbtype.Msg, 20))
 
 	hbcache.Start(t.ctx)
 
