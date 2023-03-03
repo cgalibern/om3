@@ -34,7 +34,6 @@ var (
 	WaitRunningDelay   = 500 * time.Millisecond
 	WaitStoppedTimeout = 4 * time.Second
 	WaitStoppedDelay   = 250 * time.Millisecond
-	PidFile            = filepath.Join(rawconfig.Paths.Var, "osvcd.pid")
 )
 
 type (
@@ -46,6 +45,11 @@ type (
 		Wait()
 	}
 )
+
+// DaemonPidFile returns the daemon pid file
+func DaemonPidFile() string {
+	return filepath.Join(rawconfig.Paths.Var, "osvcd.pid")
+}
 
 func bootStrapCcfg() error {
 	type mandatoryKeyT struct {
@@ -111,10 +115,11 @@ func (t *T) Start() error {
 	if err != nil {
 		return err
 	}
-	if err := pidfile.WriteControl(PidFile, os.Getpid(), true); err != nil {
+	pidFile := DaemonPidFile()
+	if err := pidfile.WriteControl(pidFile, os.Getpid(), true); err != nil {
 		return err
 	}
-	defer os.Remove(PidFile)
+	defer os.Remove(pidFile)
 	d, err := t.start()
 	release()
 	if err != nil {
