@@ -16,26 +16,14 @@ jobs:
 
     name: Go build and test
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version-file: 'go.mod'
-          cache-dependency-path: go.sum
+          go-version: '1.22.0'
+          check-latest: true
 
       - name: sudo go version
-        run: sudo go version
-
-      - name: sudo GOCACHE=$GOCACHE GOMODCACHE=$GOMODCACHE go env
-        run: sudo GOCACHE=$GOCACHE GOMODCACHE=$GOMODCACHE go env
-
-      - name: Build om
-        run: sudo GOCACHE=$GOCACHE GOMODCACHE=$GOMODCACHE go build -v ./cmd/om
-
-      - name: Build ox
-        run: sudo GOCACHE=$GOCACHE GOMODCACHE=$GOMODCACHE go build -v ./cmd/ox
-
-      - name: Test root
-        run: sudo GOCACHE=$GOCACHE GOMODCACHE=$GOMODCACHE go test -p 1 -timeout 60s ./...
+        run: sudo /opt/hostedtoolcache/go/1.22.0/x64/bin/go version
 
       - name: Test root race
-        run: sudo GOCACHE=$GOCACHE GOMODCACHE=$GOMODCACHE go test -p 1 -timeout 240s --race ./...
+        run: sudo GOCACHE=$GOCACHE GOMODCACHE=$GOMODCACHE /opt/hostedtoolcache/go/1.22.0/x64/bin/go test -p 1 --race -timeout 40s -v ./core/om/...

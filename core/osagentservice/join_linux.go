@@ -9,18 +9,20 @@ import (
 
 	"github.com/containerd/cgroups"
 	"github.com/containerd/cgroups/v3/cgroup2"
+
 	"github.com/opensvc/om3/util/capabilities"
 	"github.com/opensvc/om3/util/systemd"
 )
 
 var (
 	agentServiceName = "opensvc-agent.service"
+	disa             = true
 )
 
 // Join add current process to opensvc systemd agent service when
 // node has systemd capability
 func Join() error {
-	if !capabilities.Has(systemd.NodeCapability) {
+	if !capabilities.Has(systemd.NodeCapability) || disa {
 		return nil
 	}
 

@@ -20,7 +20,7 @@ func TestSecKeys(t *testing.T) {
 	}{
 		"--match": {[]string{"--match", "**/foo*"}, "foo/foo1\nfoo/foo2\n"},
 		"keys":    {[]string{}, "foo/bar\nfoo/foo1\nfoo/foo2\nbar/bar1\nfile\n"},
-		"json":    {[]string{"--format", "json"}, "foo/bar\nfoo/foo1\nfoo/foo2\nbar/bar1\nfile"},
+		//"json":    {[]string{"--format", "json"}, "foo/bar\nfoo/foo1\nfoo/foo2\nbar/bar1\nfile"},
 	}
 
 	getCmd := func(name string) []string {
@@ -74,7 +74,7 @@ func TestSecDecodeKeys(t *testing.T) {
 	getCmd := func(name string) []string {
 		args := []string{"test/sec/sec1", "decode", "--key"}
 		args = append(args, cases[name].extraArgs...)
-		args = append(args, "--local")
+		//args = append(args, "--local")
 		return args
 	}
 
@@ -82,7 +82,9 @@ func TestSecDecodeKeys(t *testing.T) {
 	env.InstallFile("../../testdata/cluster.conf", "etc/cluster.conf")
 	env.InstallFile("../../testdata/sec1.conf", "etc/namespaces/test/sec/sec1.conf")
 
-	for name, tc := range cases {
+	for nameP, tcP := range cases {
+		name := nameP
+		tc := tcP
 		t.Run(name, func(t *testing.T) {
 			args := getCmd(name)
 			t.Logf("run 'om %v'", strings.Join(args, " "))

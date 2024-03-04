@@ -1,6 +1,6 @@
 module github.com/opensvc/om3
 
-go 1.20
+go 1.22
 
 require (
 	github.com/allenai/go-swaggerui v0.1.0
