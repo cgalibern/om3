@@ -13,19 +13,19 @@ import (
 	"github.com/opensvc/om3/daemon/msgbus"
 )
 
-func (a *DaemonApi) PostClusterActionAbort(ctx echo.Context) error {
+func (a *DaemonAPI) PostClusterActionAbort(ctx echo.Context) error {
 	return a.PostClusterAction(ctx, node.MonitorGlobalExpectAborted)
 }
 
-func (a *DaemonApi) PostClusterActionFreeze(ctx echo.Context) error {
+func (a *DaemonAPI) PostClusterActionFreeze(ctx echo.Context) error {
 	return a.PostClusterAction(ctx, node.MonitorGlobalExpectFrozen)
 }
 
-func (a *DaemonApi) PostClusterActionUnfreeze(ctx echo.Context) error {
+func (a *DaemonAPI) PostClusterActionUnfreeze(ctx echo.Context) error {
 	return a.PostClusterAction(ctx, node.MonitorGlobalExpectThawed)
 }
 
-func (a *DaemonApi) PostClusterAction(ctx echo.Context, globalExpect node.MonitorGlobalExpect) error {
+func (a *DaemonAPI) PostClusterAction(ctx echo.Context, globalExpect node.MonitorGlobalExpect) error {
 	var (
 		value = node.MonitorUpdate{}
 	)
@@ -34,14 +34,14 @@ func (a *DaemonApi) PostClusterAction(ctx echo.Context, globalExpect node.Monito
 	}
 	value = node.MonitorUpdate{
 		GlobalExpect:             &globalExpect,
-		CandidateOrchestrationId: uuid.New(),
+		CandidateOrchestrationID: uuid.New(),
 	}
 	msg := msgbus.SetNodeMonitor{
 		Node:  a.localhost,
 		Value: value,
 		Err:   make(chan error),
 	}
-	a.EventBus.Pub(&msg, labelApi, a.LabelNode)
+	a.EventBus.Pub(&msg, labelAPI, a.LabelNode)
 	ticker := time.NewTicker(300 * time.Millisecond)
 	defer ticker.Stop()
 	var errs error
@@ -56,7 +56,7 @@ func (a *DaemonApi) PostClusterAction(ctx echo.Context, globalExpect node.Monito
 				return JSONProblemf(ctx, http.StatusConflict, "set monitor", "%s", errs)
 			} else {
 				return ctx.JSON(http.StatusOK, api.OrchestrationQueued{
-					OrchestrationId: value.CandidateOrchestrationId,
+					OrchestrationID: value.CandidateOrchestrationID,
 				})
 			}
 		case <-ctx.Request().Context().Done():

@@ -174,11 +174,11 @@ func (t *T) configure() error {
 			return err
 		}
 	} else if t.url == "" {
-		t.url = daemonenv.UrlUxHttp()
+		t.url = daemonenv.HTTPUnixURL()
 	} else if t.bearer == "" && t.username == "" && t.authorization == "" {
 		// TODO: need refactor or remove, this may send credential to unexpected url
 		t.username = hostname.Hostname()
-		t.password = rawconfig.ClusterSection().Secret
+		t.password = rawconfig.GetClusterSection().Secret
 	}
 
 	err := t.newRequester()
@@ -202,7 +202,7 @@ func (t *T) newRequester() (err error) {
 			URL:     t.url,
 			Timeout: t.timeout,
 		})
-	case strings.HasSuffix(t.url, daemonenv.BaseHttpSock):
+	case strings.HasSuffix(t.url, daemonenv.HTTPUnixFileBasename):
 		t.ClientWithResponses, err = reqh2.NewUDS(reqh2.Config{
 			URL:     t.url,
 			Timeout: t.timeout,
@@ -229,11 +229,11 @@ func (t *T) newRequester() (err error) {
 				}
 				port := nodesInfo[t.url].Lsnr.Port
 				if port == "" {
-					port = fmt.Sprint(daemonenv.HttpPort)
+					port = fmt.Sprint(daemonenv.HTTPPort)
 				}
 				t.url = fmt.Sprintf("https://%s:%s", addr, port)
 			} else {
-				t.url = fmt.Sprintf("https://%s:%d", t.url, daemonenv.HttpPort)
+				t.url = fmt.Sprintf("https://%s:%d", t.url, daemonenv.HTTPPort)
 			}
 		} else {
 			t.url = reqh2.InetPrefix + t.url

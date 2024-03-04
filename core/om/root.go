@@ -1,7 +1,9 @@
 package om
 
 import (
+	// Necessary to use go:embed
 	_ "embed"
+
 	"fmt"
 	"os"
 	"path/filepath"
@@ -83,8 +85,8 @@ func configureLogger() error {
 		Str("version", version.Version()).
 		Stringer("sid", xsession.ID).
 		Logger()
-	if requestId := os.Getenv("OSVC_REQUEST_ID"); requestId != "" {
-		log.Logger = log.Logger.With().Str("request_id", requestId).Logger()
+	if requestID := os.Getenv("OSVC_REQUEST_ID"); requestID != "" {
+		log.Logger = log.Logger.With().Str("request_id", requestID).Logger()
 	}
 	return nil
 }

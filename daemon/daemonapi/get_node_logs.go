@@ -19,7 +19,7 @@ import (
 )
 
 // GetNodeLogs feeds publications in rss format.
-func (a *DaemonApi) GetNodeLogs(ctx echo.Context, nodename string, params api.GetNodeLogsParams) error {
+func (a *DaemonAPI) GetNodeLogs(ctx echo.Context, nodename string, params api.GetNodeLogsParams) error {
 	if nodename == a.localhost || nodename == "localhost" {
 		return a.getLocalNodeLogs(ctx, params)
 	} else if !clusternode.Has(nodename) {
@@ -29,7 +29,7 @@ func (a *DaemonApi) GetNodeLogs(ctx echo.Context, nodename string, params api.Ge
 	}
 }
 
-func (a *DaemonApi) getPeerNodeLogs(ctx echo.Context, nodename string, params api.GetNodeLogsParams) error {
+func (a *DaemonAPI) getPeerNodeLogs(ctx echo.Context, nodename string, params api.GetNodeLogsParams) error {
 	log := LogHandler(ctx, "GetNodeLogs")
 	evCtx := ctx.Request().Context()
 	request := ctx.Request()
@@ -82,7 +82,7 @@ func (a *DaemonApi) getPeerNodeLogs(ctx echo.Context, nodename string, params ap
 	return nil
 }
 
-func (a *DaemonApi) getLocalNodeLogs(ctx echo.Context, params api.GetNodeLogsParams) error {
+func (a *DaemonAPI) getLocalNodeLogs(ctx echo.Context, params api.GetNodeLogsParams) error {
 	if v, err := assertRole(ctx, rbac.RoleRoot); err != nil {
 		return err
 	} else if !v {
@@ -153,6 +153,7 @@ func (a *DaemonApi) getLocalNodeLogs(ctx echo.Context, params api.GetNodeLogsPar
 			return nil
 		case ev := <-stream.Events():
 			if _, err := sseWriter.Write(&event.Event{Kind: "log", Data: ev.B}); err != nil {
+				log.Debugf("sseWriter.Write: %s", err)
 				break
 			}
 			w.Flush()
@@ -163,7 +164,6 @@ func (a *DaemonApi) getLocalNodeLogs(ctx echo.Context, params api.GetNodeLogsPar
 			log.Debugf("stream.Error: %s", err)
 		}
 	}
-	return nil
 }
 
 // parseLogFilters return filters from b.Filter

@@ -175,9 +175,9 @@ func monthDays(tm time.Time) int {
 	return lastDay.Day()
 }
 
-// ContextualizeDays returns a copy of Days with the "nth-from-tail" monthdays
+// contextualizeDays returns a copy of Days with the "nth-from-tail" monthdays
 // evaluated using the actual number of days in the <tm> month
-func (t Schedule) ContextualizeDays(tm time.Time) []day {
+func (t Schedule) contextualizeDays(tm time.Time) []day {
 	maxValue := monthDays(tm)
 	days := make([]day, len(t.days))
 	for i, d := range t.days {
@@ -208,16 +208,16 @@ func isTooSoon(tm, last time.Time, interval time.Duration) bool {
 }
 
 // After returns true if Begin > <tm>
-func (t timerange) After(tm time.Time) bool {
-	begin := t.begin
+func (tr timerange) After(tm time.Time) bool {
+	begin := tr.begin
 	seconds := tm.Sub(time.Date(tm.Year(), tm.Month(), tm.Day(), 0, 0, 0, 0, tm.Location()))
 	return begin >= seconds
 }
 
 // TestIncludes returns ErrNotAllowed if <tm> is not in the Timerange
-func (t timerange) TestIncludes(tm time.Time) error {
-	begin := t.begin
-	end := t.end
+func (tr timerange) TestIncludes(tm time.Time) error {
+	begin := tr.begin
+	end := tr.end
 	seconds := tm.Sub(time.Date(tm.Year(), tm.Month(), tm.Day(), 0, 0, 0, 0, tm.Location()))
 
 	switch {
@@ -237,12 +237,12 @@ func (t timerange) TestIncludes(tm time.Time) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("%w: not in timerange %s-%s", ErrNotAllowed, t.begin, t.end)
+	return fmt.Errorf("%w: not in timerange %s-%s", ErrNotAllowed, tr.begin, tr.end)
 }
 
 // Includes returns true if <tm> is in the Timerange
-func (t timerange) Includes(tm time.Time) bool {
-	err := t.TestIncludes(tm)
+func (tr timerange) Includes(tm time.Time) bool {
+	err := tr.TestIncludes(tm)
 	return err == nil
 }
 
@@ -419,7 +419,7 @@ func (t Schedule) TestIsInDays(tm time.Time) error {
 		}
 		return nil
 	}
-	for _, d := range t.ContextualizeDays(tm) {
+	for _, d := range t.contextualizeDays(tm) {
 		if err := isInDay(d); err == nil {
 			return nil
 		} else if errors.Is(err, ErrNotAllowed) {
@@ -983,14 +983,14 @@ func parseOneCalendarExpression(spec string, all []int) (map[int]interface{}, er
 			//  days are 1 to 7
 			//  weeks are 1 to 53
 			//  months are 1 to 12
-			for i := begin; i <= len(all); i += 1 {
+			for i := begin; i <= len(all); i++ {
 				m[i] = nil
 			}
-			for i := 1; i <= end; i += 1 {
+			for i := 1; i <= end; i++ {
 				m[i] = nil
 			}
 		} else {
-			for i := begin; i <= end; i += 1 {
+			for i := begin; i <= end; i++ {
 				m[i] = nil
 			}
 		}
@@ -1193,7 +1193,7 @@ func getNext(data Schedule, options nextOptionsT, excludes Schedules) (time.Time
 	tm := options.Time
 	year1 := tm.Year()
 	month1 := int(tm.Month())
-	for year := year1; year <= year1+1; year += 1 {
+	for year := year1; year <= year1+1; year++ {
 		for _, month := range data.months {
 			var firstDay int
 			if year == year1 {
@@ -1228,7 +1228,7 @@ func getNext(data Schedule, options nextOptionsT, excludes Schedules) (time.Time
 					tm.Hour(), tm.Minute(), tm.Second(), tm.Nanosecond(),
 					tm.Location(),
 				)
-				days := data.ContextualizeDays(tm)
+				days := data.contextualizeDays(tm)
 				for {
 					tmi, interval, err := daily(tm, days)
 					if errors.Is(err, ErrDrift) {

@@ -112,9 +112,9 @@ func (t T) Label() string {
 
 func (t T) Info(ctx context.Context) (resource.InfoKeys, error) {
 	m := resource.InfoKeys{
-		{"dev", t.Device},
-		{"mnt", t.mountPoint()},
-		{"mnt_opt", t.MountOptions},
+		{Key: "dev", Value: t.Device},
+		{Key: "mnt", Value: t.mountPoint()},
+		{Key: "mnt_opt", Value: t.MountOptions},
 	}
 	return m, nil
 }
@@ -295,11 +295,11 @@ func (t T) pool() *zfs.Pool {
 }
 
 func (t T) poolName() string {
-	return zfs.ZfsName(t.Device).PoolName()
+	return zfs.DatasetName(t.Device).PoolName()
 }
 
 func (t T) baseName() string {
-	return zfs.ZfsName(t.Device).BaseName()
+	return zfs.DatasetName(t.Device).BaseName()
 }
 
 func (t *T) validateDevice() error {

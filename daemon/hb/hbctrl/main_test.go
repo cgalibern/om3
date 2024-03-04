@@ -15,7 +15,7 @@ import (
 	"github.com/opensvc/om3/util/pubsub"
 )
 
-func bootstrapDaemon(t *testing.T, ctx context.Context) context.Context {
+func bootstrapDaemon(ctx context.Context, t *testing.T) context.Context {
 	t.Helper()
 	t.Logf("start pubsub")
 	drainDuration := 10 * time.Millisecond
@@ -45,7 +45,7 @@ func setupCtrl(ctx context.Context) *C {
 func TestCmdSetPeerSuccessCreatesPublishHbNodePing(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	ctx = bootstrapDaemon(t, ctx)
+	ctx = bootstrapDaemon(ctx, t)
 	bus := pubsub.BusFromContext(ctx)
 
 	pubDelay = 10 * time.Millisecond
@@ -212,10 +212,10 @@ func TestCmdSetPeerSuccessCreatesPublishHbNodePing(t *testing.T) {
 
 			for _, id := range tc.hbs {
 				t.Logf("register id %s", id)
-				testCtrl.cmd <- CmdRegister{Id: id, Type: "test-type"}
+				testCtrl.cmd <- CmdRegister{ID: id, Type: "test-type"}
 				t.Logf("add watcher id %s nodename %s", id, tNode)
 				testCtrl.cmd <- CmdAddWatcher{
-					HbId:     id,
+					HbID:     id,
 					Nodename: tNode,
 					Ctx:      ctx,
 					Timeout:  time.Second,
@@ -226,7 +226,7 @@ func TestCmdSetPeerSuccessCreatesPublishHbNodePing(t *testing.T) {
 				t.Logf("create event %s %s %v", ev.hb, ev.node, ev.ping)
 				testCtrl.cmd <- CmdSetPeerSuccess{
 					Nodename: tNode,
-					HbId:     ev.hb,
+					HbID:     ev.hb,
 					Success:  ev.ping,
 				}
 				time.Sleep(ev.delay)

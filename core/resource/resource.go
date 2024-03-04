@@ -558,8 +558,8 @@ func (t T) trigger(ctx context.Context, s string) error {
 
 func (t T) Trigger(ctx context.Context, blocking trigger.Blocking, hook trigger.Hook, action trigger.Action) error {
 	var cmd string
-	hookId := trigger.Format(blocking, hook, action)
-	switch hookId {
+	hookID := trigger.Format(blocking, hook, action)
+	switch hookID {
 	case "blocking_pre_start":
 		cmd = t.BlockingPreStart
 	case "pre_start":
@@ -611,7 +611,7 @@ func (t T) Trigger(ctx context.Context, blocking trigger.Blocking, hook trigger.
 		return nil
 	}
 	t.Log().Infof("trigger %s %s %s: %s", blocking, hook, action, cmd)
-	t.Progress(ctx, "▶ "+hookId)
+	t.Progress(ctx, "▶ "+hookID)
 	return t.trigger(ctx, cmd)
 }
 
@@ -1228,16 +1228,6 @@ func getStatusInfoSched(t Scheduler) map[string]StatusInfoSchedAction {
 	return data
 }
 
-func (rstat Status) DeepCopy() *Status {
-	newValue := Status{}
-	if b, err := json.Marshal(rstat); err != nil {
-		return &Status{}
-	} else if err := json.Unmarshal(b, &newValue); err == nil {
-		return &newValue
-	}
-	return &Status{}
-}
-
 func (t SCSIPersistentReservation) IsSCSIPersistentReservationPreemptAbortDisabled() bool {
 	return t.NoPreemptAbort
 }
@@ -1250,7 +1240,7 @@ func (t SCSIPersistentReservation) PersistentReservationKey() string {
 	if t.Key != "" {
 		return t.Key
 	}
-	if nodePRKey := rawconfig.NodeSection().PRKey; nodePRKey != "" {
+	if nodePRKey := rawconfig.GetNodeSection().PRKey; nodePRKey != "" {
 		return nodePRKey
 	}
 	return ""
@@ -1275,6 +1265,16 @@ func (t *T) Progress(ctx context.Context, cols ...any) {
 		key := t.ProgressKey()
 		view.Info(key, cols)
 	}
+}
+
+func (t Status) DeepCopy() *Status {
+	newValue := Status{}
+	if b, err := json.Marshal(t); err != nil {
+		return &Status{}
+	} else if err := json.Unmarshal(b, &newValue); err == nil {
+		return &newValue
+	}
+	return &Status{}
 }
 
 func (t Status) Unstructured() map[string]any {

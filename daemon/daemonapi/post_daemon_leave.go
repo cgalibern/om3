@@ -12,7 +12,7 @@ import (
 
 // PostDaemonLeave publishes msgbus.LeaveRequest{Node: node} with label node=<apinode>.
 // It requires non empty params.Node
-func (a *DaemonApi) PostDaemonLeave(ctx echo.Context, params api.PostDaemonLeaveParams) error {
+func (a *DaemonAPI) PostDaemonLeave(ctx echo.Context, params api.PostDaemonLeaveParams) error {
 	if v, err := assertRole(ctx, rbac.RoleRoot, rbac.RoleLeave); err != nil {
 		return err
 	} else if !v {
@@ -26,6 +26,6 @@ func (a *DaemonApi) PostDaemonLeave(ctx echo.Context, params api.PostDaemonLeave
 		return JSONProblem(ctx, http.StatusBadRequest, "Invalid parameters", "Missing node param")
 	}
 	log.Infof("publish leave request for node %s", node)
-	a.EventBus.Pub(&msgbus.LeaveRequest{Node: node}, labelApi, a.LabelNode)
+	a.EventBus.Pub(&msgbus.LeaveRequest{Node: node}, labelAPI, a.LabelNode)
 	return ctx.JSON(http.StatusOK, nil)
 }

@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/goccy/go-json"
+	"encoding/json"
 	"github.com/opensvc/om3/core/keyop"
 	"github.com/opensvc/om3/core/naming"
 	"github.com/opensvc/om3/core/object"
@@ -137,7 +137,7 @@ func (t *CompSvcconfs) Add(s string) error {
 	svcRessourcesNames = t.addEnvInRessourcesNamesIfNotPresent(svcRessourcesNames)
 	for _, rule := range data {
 		if rule.Key == "" {
-			return fmt.Errorf("key is mandatory in dict : %s \n", s)
+			return fmt.Errorf("key is mandatory in dict : %s", s)
 		}
 		if rule.Op == "" {
 			rule.Op = "="
@@ -149,7 +149,7 @@ func (t *CompSvcconfs) Add(s string) error {
 			if rule.Op == "unset" {
 				rule.Value = "nil"
 			} else {
-				return fmt.Errorf("value is mandatory in dict : %s \n", s)
+				return fmt.Errorf("value is mandatory in dict : %s", s)
 			}
 		}
 		rule.Value = fmt.Sprint(rule.Value)
@@ -340,7 +340,7 @@ func (t CompSvcconfs) fixRule(rule CompSvcconf) ExitCode {
 			}
 		} else {
 			kop := keyop.Parse(resourceName + "." + variable + "=" + rule.Value.(string))
-			if err := o.Config().PrepareSetKeys(*kop); err != nil {
+			if err := o.Config().PrepareSet(*kop); err != nil {
 				t.Errorf("set %s: %s", *kop, err)
 				e = e.Merge(ExitNok)
 				continue

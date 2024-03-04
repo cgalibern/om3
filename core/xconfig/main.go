@@ -23,7 +23,6 @@ import (
 	"github.com/opensvc/om3/util/file"
 	"github.com/opensvc/om3/util/hostname"
 	"github.com/opensvc/om3/util/key"
-	"github.com/opensvc/om3/util/plog"
 	"github.com/opensvc/om3/util/stringslice"
 	"github.com/opensvc/om3/util/xstrings"
 )
@@ -47,7 +46,6 @@ type (
 	Referrer interface {
 		KeywordLookup(key.T, string) keywords.Keyword
 		IsVolatile() bool
-		Log() *plog.Logger
 		Config() *T
 
 		// for reference private to the referrer. ex: path for an object
@@ -435,6 +433,10 @@ func (t *T) GetSizeStrict(k key.T) (*int64, error) {
 
 // PrepareUnset unsets keywords from config without committing changes.
 func (t *T) PrepareUnset(ks ...key.T) error {
+	ks, err := t.expandKeywords(ks...)
+	if err != nil {
+		return err
+	}
 	for _, k := range ks {
 		if !t.file.Section(k.Section).HasKey(k.Option) {
 			continue
@@ -445,6 +447,27 @@ func (t *T) PrepareUnset(ks ...key.T) error {
 	return nil
 }
 
+func (t *T) expandKeywords(ks ...key.T) (key.L, error) {
+	var l key.L
+	for _, k := range ks {
+		if !DriverGroups.Has(k.Section) {
+			l = append(l, k)
+			continue
+		}
+		prefix := k.Section + "#"
+		for _, section := range t.file.SectionStrings() {
+			if !strings.HasPrefix(section, prefix) {
+				continue
+			}
+			l = append(l, key.T{
+				Section: section,
+				Option:  k.Option,
+			})
+		}
+	}
+	return l, nil
+}
+
 // Unset deletes keys and commits.
 func (t *T) Unset(ks ...key.T) error {
 	if err := t.PrepareUnset(ks...); err != nil {
@@ -453,7 +476,14 @@ func (t *T) Unset(ks ...key.T) error {
 	return t.Commit()
 }
 
-func (t *T) Set(op keyop.T) error {
+func (t *T) Set(ops ...keyop.T) error {
+	if err := t.PrepareSet(ops...); err != nil {
+		return err
+	}
+	return t.Commit()
+}
+
+func (t *T) prepareSetKey(op keyop.T) error {
 	if !DriverGroups.Has(op.Key.Section) {
 		return t.set(op)
 	}
@@ -475,7 +505,6 @@ func (t *T) DriverGroupSet(op keyop.T) error {
 }
 
 func (t *T) set(op keyop.T) error {
-	t.Referrer.Log().Attr("op", op.String()).Debugf("set %s", op)
 	setSet := func(op keyop.T) error {
 		current := t.file.Section(op.Key.Section).Key(op.Key.Option).Value()
 		if current == op.Value {
@@ -515,7 +544,7 @@ func (t *T) set(op keyop.T) error {
 		removed := 0
 		for _, e := range current {
 			if e == op.Value {
-				removed += 1
+				removed++
 				continue
 			}
 			target = append(target, e)
@@ -988,8 +1017,6 @@ func (t T) dereference(ref string, section string, impersonate string) (string, 
 }
 
 func (t T) dereferenceNodeKey(ref string, impersonate string) (string, error) {
-	t.Referrer.Log().Debugf("dereference node key %s", ref)
-
 	//
 	// Extract the key string relative to the node configuration
 	// Examples:
@@ -1017,7 +1044,6 @@ func (t T) dereferenceNodeKey(ref string, impersonate string) (string, error) {
 		// allow
 	default:
 		// deny
-		t.Referrer.Log().Debugf("denied reference to node key %s", ref)
 		return ref, fmt.Errorf("denied reference to node key %s", ref)
 	}
 
@@ -1029,7 +1055,6 @@ func (t T) dereferenceNodeKey(ref string, impersonate string) (string, error) {
 }
 
 func (t T) dereferenceKey(ref string, section string, impersonate string) (string, error) {
-	t.Referrer.Log().Debugf("dereference well known key %s from section %s context", ref, section)
 	refKey := key.Parse(ref)
 	if refKey.Section == "" {
 		refKey.Section = section
@@ -1155,7 +1180,9 @@ func (t *T) rawCommit(configData rawconfig.T, configPath string, validate bool) 
 		return err
 	}
 	if validate {
-		if _, err := t.Validate(); err != nil {
+		if alerts, err := t.Validate(); err != nil {
+			return fmt.Errorf("abort config commit: %w", err)
+		} else if alerts.HasError() {
 			return fmt.Errorf("abort config commit: validation errors")
 		}
 	}
@@ -1236,21 +1263,13 @@ func (t T) ModTime() time.Time {
 	return file.ModTime(t.ConfigFilePath)
 }
 
-// SetKeys applies key operations to config and commit changes.
-func (t *T) SetKeys(kops ...keyop.T) error {
-	if err := t.PrepareSetKeys(kops...); err != nil {
-		return err
-	}
-	return t.Commit()
-}
-
-// PrepareSetKeys applies key operations to config without committing changes.
-func (t *T) PrepareSetKeys(kops ...keyop.T) error {
+// PrepareSet applies key operations to config without committing changes.
+func (t *T) PrepareSet(kops ...keyop.T) error {
 	for _, op := range kops {
 		if op.IsZero() {
 			return fmt.Errorf("invalid set expression: %s", op)
 		}
-		if err := t.Set(op); err != nil {
+		if err := t.prepareSetKey(op); err != nil {
 			return err
 		}
 	}
@@ -1271,7 +1290,7 @@ func (t *T) PrepareUpdate(deleteSections []string, unsetKeys []key.T, keyOps []k
 	if err := t.PrepareUnset(unsetKeys...); err != nil {
 		return err
 	}
-	if err := t.PrepareSetKeys(keyOps...); err != nil {
+	if err := t.PrepareSet(keyOps...); err != nil {
 		return err
 	}
 	return nil

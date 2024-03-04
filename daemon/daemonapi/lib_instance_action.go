@@ -16,7 +16,7 @@ import (
 	"github.com/opensvc/om3/util/pubsub"
 )
 
-func (a *DaemonApi) apiExec(ctx echo.Context, p naming.Path, requesterSid uuid.UUID, args []string, log *plog.Logger) (uuid.UUID, error) {
+func (a *DaemonAPI) apiExec(ctx echo.Context, p naming.Path, requesterSid uuid.UUID, args []string, log *plog.Logger) (uuid.UUID, error) {
 	execname, err := os.Executable()
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("can't detect om execname: %w", err)
@@ -27,14 +27,14 @@ func (a *DaemonApi) apiExec(ctx echo.Context, p naming.Path, requesterSid uuid.U
 		command.WithArgs(args),
 		command.WithLogger(log),
 		command.WithVarEnv(
-			env.OriginSetenvArg(env.ActionOriginDaemonApi),
+			env.OriginSetenvArg(env.ActionOriginDaemonAPI),
 			"OSVC_SESSION_ID="+sid.String(),
 			"OSVC_REQUEST_ID="+fmt.Sprint(ctx.Get("uuid")),
 			"OSVC_REQUESTER_SESSION_ID="+fmt.Sprint(requesterSid),
 		),
 	)
 	labels := []pubsub.Label{
-		labelApi,
+		labelAPI,
 		{"sid", sid.String()},
 		{"requester_sid", requesterSid.String()},
 	}

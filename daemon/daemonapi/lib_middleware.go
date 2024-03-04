@@ -3,6 +3,7 @@ package daemonapi
 import (
 	"context"
 	"fmt"
+	"github.com/opensvc/om3/daemon/daemonauth"
 	"net/http"
 	"strings"
 
@@ -45,15 +46,15 @@ func LogMiddleware(parent context.Context) echo.MiddlewareFunc {
 
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			reqUuid := uuid.New()
+			requestUUID := uuid.New()
 			r := c.Request()
 			log := log.
-				Attr("request_uuid", reqUuid.String()).
+				Attr("request_uuid", requestUUID.String()).
 				Attr("request_method", r.Method).
 				Attr("request_path", r.URL.Path).
 				WithPrefix(fmt.Sprintf("%s%s %s: ", log.Prefix(), r.Method, r.URL.Path))
 			c.Set("logger", log)
-			c.Set("uuid", reqUuid)
+			c.Set("uuid", requestUUID)
 			return next(c)
 		}
 	}
@@ -61,7 +62,7 @@ func LogMiddleware(parent context.Context) echo.MiddlewareFunc {
 
 func AuthMiddleware(parent context.Context) echo.MiddlewareFunc {
 	serverAddr := daemonctx.ListenAddr(parent)
-	strategies := parent.Value("authStrategies").(Strategier)
+	strategies := daemonauth.StrategiesFromContext(parent)
 	newExtensions := func(strategy string) *auth.Extensions {
 		return &auth.Extensions{"strategy": []string{strategy}}
 	}
@@ -72,7 +73,25 @@ func AuthMiddleware(parent context.Context) echo.MiddlewareFunc {
 		}
 		usrPath := c.Path()
 		// TODO confirm no auth GET /metrics
-		return strings.HasPrefix(usrPath, "/public") || strings.HasPrefix(usrPath, "/metrics")
+		isPublicPath := func(usrPath string) bool {
+			switch {
+			case strings.HasPrefix(usrPath, "/public/"):
+				return true
+			case strings.HasPrefix(usrPath, "/metrics"):
+				return true
+			case strings.HasPrefix(usrPath, "/auth/info"):
+				return true
+			case usrPath == "/index.js":
+				return true
+			case usrPath == "/favicon.ico":
+				return true
+			case usrPath == "/":
+				return true
+			default:
+				return false
+			}
+		}
+		return isPublicPath(usrPath)
 	}
 
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
@@ -106,7 +125,7 @@ func AuthMiddleware(parent context.Context) echo.MiddlewareFunc {
 func LogUserMiddleware(parent context.Context) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			authUser := c.Get("user").(auth.Info)
+			authUser := userFromContext(c)
 			extensions := authUser.GetExtensions()
 			log := GetLogger(c).
 				Attr("auth_user", authUser.GetUserName()).
@@ -141,13 +160,13 @@ func LogRequestMiddleWare(parent context.Context) echo.MiddlewareFunc {
 	}
 }
 
-func UiMiddleware(_ context.Context) echo.MiddlewareFunc {
+func UIMiddleware(_ context.Context) echo.MiddlewareFunc {
 	uiHandler := http.StripPrefix("/public/ui", swaggerui.Handler("/public/openapi"))
-	echoUi := echo.WrapHandler(uiHandler)
+	echoUI := echo.WrapHandler(uiHandler)
 
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			return echoUi(c)
+			return echoUI(c)
 		}
 	}
 }

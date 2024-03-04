@@ -29,23 +29,23 @@ var (
 	defaultWeight = 10
 )
 
-func (t *dns) stateKey(p naming.Path, node string) stateKey {
+func (t *Manager) stateKey(p naming.Path, node string) stateKey {
 	return stateKey{
 		path: p.String(),
 		node: node,
 	}
 }
 
-func (t *dns) onNodeStatsUpdated(c *msgbus.NodeStatsUpdated) {
+func (t *Manager) onNodeStatsUpdated(c *msgbus.NodeStatsUpdated) {
 	t.score[c.Node] = c.Value.Score
 }
 
-func (t *dns) onClusterConfigUpdated(c *msgbus.ClusterConfigUpdated) {
+func (t *Manager) onClusterConfigUpdated(c *msgbus.ClusterConfigUpdated) {
 	t.cluster = c.Value
 	_ = t.sockChown()
 }
 
-func (t *dns) pubDeleted(record Record, p naming.Path, node string) {
+func (t *Manager) pubDeleted(record Record, p naming.Path, node string) {
 	t.bus.Pub(&msgbus.ZoneRecordDeleted{
 		Path:    p,
 		Node:    node,
@@ -56,7 +56,7 @@ func (t *dns) pubDeleted(record Record, p naming.Path, node string) {
 	}, pubsub.Label{"node", node}, pubsub.Label{"path", p.String()})
 }
 
-func (t *dns) pubUpdated(record Record, p naming.Path, node string) {
+func (t *Manager) pubUpdated(record Record, p naming.Path, node string) {
 	t.bus.Pub(&msgbus.ZoneRecordUpdated{
 		Path:    p,
 		Node:    node,
@@ -67,7 +67,7 @@ func (t *dns) pubUpdated(record Record, p naming.Path, node string) {
 	}, pubsub.Label{"node", node}, pubsub.Label{"path", p.String()})
 }
 
-func (t *dns) onInstanceStatusDeleted(c *msgbus.InstanceStatusDeleted) {
+func (t *Manager) onInstanceStatusDeleted(c *msgbus.InstanceStatusDeleted) {
 	key := t.stateKey(c.Path, c.Node)
 	if records, ok := t.state[key]; ok {
 		for _, record := range records {
@@ -77,7 +77,7 @@ func (t *dns) onInstanceStatusDeleted(c *msgbus.InstanceStatusDeleted) {
 	}
 }
 
-func (t *dns) onInstanceStatusUpdated(c *msgbus.InstanceStatusUpdated) {
+func (t *Manager) onInstanceStatusUpdated(c *msgbus.InstanceStatusUpdated) {
 	key := t.stateKey(c.Path, c.Node)
 	name := naming.NewFQDN(c.Path, t.cluster.Name).String() + "."
 	nameOnNode := fmt.Sprintf("%s.%s.%s.%s.node.%s.", c.Path.Name, c.Path.Namespace, c.Path.Kind, c.Node, t.cluster.Name)
@@ -95,7 +95,7 @@ func (t *dns) onInstanceStatusUpdated(c *msgbus.InstanceStatusUpdated) {
 			change = true
 		case existingRecord.Type != record.Type:
 			change = true
-		case existingRecord.DomainId != record.DomainId:
+		case existingRecord.DomainID != record.DomainID:
 			change = true
 		case existingRecord.TTL != record.TTL:
 			change = true
@@ -119,7 +119,7 @@ func (t *dns) onInstanceStatusUpdated(c *msgbus.InstanceStatusUpdated) {
 		}
 		stage(Record{
 			Name:     fmt.Sprintf("_%d._%s.%s", expose.FrontendPort, expose.Network, name),
-			DomainId: -1,
+			DomainID: -1,
 			Type:     "SRV",
 			TTL:      60,
 			Content:  fmt.Sprintf("%d %d %d %s", defaultPrio, weight, expose.BackendPort, nameOnNode),
@@ -163,7 +163,7 @@ func (t *dns) onInstanceStatusUpdated(c *msgbus.InstanceStatusUpdated) {
 		// Add a direct record (node agnostic)
 		stage(Record{
 			Name:     name,
-			DomainId: -1,
+			DomainID: -1,
 			Type:     aType,
 			TTL:      60,
 			Content:  ipAddr,
@@ -172,7 +172,7 @@ func (t *dns) onInstanceStatusUpdated(c *msgbus.InstanceStatusUpdated) {
 		// Add a reverse record (node agnostic)
 		stage(Record{
 			Name:     reverseAddr(ip),
-			DomainId: -1,
+			DomainID: -1,
 			Type:     ptrType,
 			TTL:      60,
 			Content:  name,
@@ -181,7 +181,7 @@ func (t *dns) onInstanceStatusUpdated(c *msgbus.InstanceStatusUpdated) {
 		// Add a direct record (node affine)
 		stage(Record{
 			Name:     nameOnNode,
-			DomainId: -1,
+			DomainID: -1,
 			Type:     aType,
 			TTL:      60,
 			Content:  ipAddr,
@@ -190,7 +190,7 @@ func (t *dns) onInstanceStatusUpdated(c *msgbus.InstanceStatusUpdated) {
 		// Add a reverse record (node affine)
 		stage(Record{
 			Name:     reverseAddr(ip),
-			DomainId: -1,
+			DomainID: -1,
 			Type:     ptrType,
 			TTL:      60,
 			Content:  nameOnNode,
@@ -203,7 +203,7 @@ func (t *dns) onInstanceStatusUpdated(c *msgbus.InstanceStatusUpdated) {
 			// Add a resource direct record (node agnostic)
 			stage(Record{
 				Name:     nameWithResourceName,
-				DomainId: -1,
+				DomainID: -1,
 				Type:     aType,
 				TTL:      60,
 				Content:  ipAddr,
@@ -212,7 +212,7 @@ func (t *dns) onInstanceStatusUpdated(c *msgbus.InstanceStatusUpdated) {
 			// Add a resource reverse record (node agnostic)
 			stage(Record{
 				Name:     reverseAddr(ip),
-				DomainId: -1,
+				DomainID: -1,
 				Type:     ptrType,
 				TTL:      60,
 				Content:  nameWithResourceName,
@@ -221,7 +221,7 @@ func (t *dns) onInstanceStatusUpdated(c *msgbus.InstanceStatusUpdated) {
 			// Add a direct record (node affine)
 			stage(Record{
 				Name:     nameOnNodeWithResourceName,
-				DomainId: -1,
+				DomainID: -1,
 				Type:     aType,
 				TTL:      60,
 				Content:  ipAddr,
@@ -230,7 +230,7 @@ func (t *dns) onInstanceStatusUpdated(c *msgbus.InstanceStatusUpdated) {
 			// Add a reverse record (node affine)
 			stage(Record{
 				Name:     reverseAddr(ip),
-				DomainId: -1,
+				DomainID: -1,
 				Type:     ptrType,
 				TTL:      60,
 				Content:  nameOnNodeWithResourceName,
@@ -251,7 +251,7 @@ func (t *dns) onInstanceStatusUpdated(c *msgbus.InstanceStatusUpdated) {
 	}
 }
 
-func (t *dns) onCmdGet(c cmdGet) {
+func (t *Manager) onCmdGet(c cmdGet) {
 	zone := make(Zone, 0)
 	for _, record := range t.zone() {
 		if record.Name != c.Name {
@@ -266,12 +266,12 @@ func (t *dns) onCmdGet(c cmdGet) {
 	c.resp <- zone
 }
 
-func (t *dns) onCmdGetZone(c cmdGetZone) {
+func (t *Manager) onCmdGetZone(c cmdGetZone) {
 	c.errC <- nil
 	c.resp <- t.zone()
 }
 
-func (t *dns) zone() Zone {
+func (t *Manager) zone() Zone {
 	zone := make(Zone, 0)
 	zoneName := t.cluster.Name + "."
 	for i, dns := range t.cluster.DNS {
@@ -280,21 +280,21 @@ func (t *dns) zone() Zone {
 		zone = append(zone,
 			Record{
 				Name:     zoneName,
-				DomainId: -1,
+				DomainID: -1,
 				Type:     "SOA",
 				TTL:      60,
 				Content:  soaContent,
 			},
 			Record{
 				Name:     nsName,
-				DomainId: -1,
+				DomainID: -1,
 				Type:     "A",
 				TTL:      60,
 				Content:  dns,
 			},
 			Record{
 				Name:     zoneName,
-				DomainId: -1,
+				DomainID: -1,
 				Type:     "NS",
 				TTL:      3600,
 				Content:  nsName,
@@ -307,7 +307,7 @@ func (t *dns) zone() Zone {
 	return zone
 }
 
-func (t *dns) getExistingRecords(key stateKey) map[string]Record {
+func (t *Manager) getExistingRecords(key stateKey) map[string]Record {
 	m := make(map[string]Record)
 	records, ok := t.state[key]
 	if !ok {

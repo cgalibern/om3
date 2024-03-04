@@ -44,7 +44,7 @@ var (
 )
 
 func (t *actor) validateAction() error {
-	node := rawconfig.NodeSection()
+	node := rawconfig.GetNodeSection()
 	if t.Env() != "PRD" && node.Env == "PRD" {
 		return fmt.Errorf("%w: not allowed to run on this node (svc env=%s node env=%s)", ErrInvalidNode, t.Env(), node.Env)
 	}
@@ -129,7 +129,7 @@ func (t *actor) actionTimeout(kwNames []string) (time.Duration, string) {
 	return 0, ""
 }
 
-func (t actor) abortWorker(ctx context.Context, r resource.Driver, q chan bool, wg *sync.WaitGroup) {
+func (t *actor) abortWorker(ctx context.Context, r resource.Driver, q chan bool, wg *sync.WaitGroup) {
 	defer wg.Done()
 	a, ok := r.(resource.Aborter)
 	if !ok {
@@ -164,7 +164,7 @@ func (t *actor) announceProgress(ctx context.Context, progress string) error {
 	p := t.Path()
 	resp, err := c.PostInstanceProgress(ctx, p.Namespace, p.Kind, p.Name, api.PostInstanceProgress{
 		State:     progress,
-		SessionId: xsession.ID,
+		SessionID: xsession.ID,
 		IsPartial: &isPartial,
 	})
 	switch {

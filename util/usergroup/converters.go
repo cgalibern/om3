@@ -1,6 +1,4 @@
 // Package usergroup provides helpers for user and group
-//
-
 package usergroup
 
 import (
@@ -9,9 +7,9 @@ import (
 	"strconv"
 )
 
-// UidFromS function tries to retrieve user id from a user string 's'
+// UIDFromString function tries to retrieve user id from a user string 's'
 // 's' may be an user id or a user name
-func UidFromS(s string) (uint32, error) {
+func UIDFromString(s string) (uint32, error) {
 	lookup, err := user.Lookup(s)
 	if err != nil {
 		lookup, err = user.LookupId(s)
@@ -24,13 +22,13 @@ func UidFromS(s string) (uint32, error) {
 	if err != nil {
 		return 0, fmt.Errorf("unable to get userid info for '%v' (%v)", s, lookup.Uid)
 	}
-	userId := uint32(id)
-	return userId, nil
+	userID := uint32(id)
+	return userID, nil
 }
 
-// GidFromS function tries to retrieve group id from a group string 's'
+// GIDFromString function tries to retrieve group id from a group string 's'
 // 's' may be an group id or a group name
-func GidFromS(s string) (uint32, error) {
+func GIDFromString(s string) (uint32, error) {
 	lookup, err := user.LookupGroup(s)
 	if err != nil {
 		lookup, err = user.LookupGroupId(s)
@@ -43,6 +41,6 @@ func GidFromS(s string) (uint32, error) {
 	if err != nil {
 		return 0, fmt.Errorf("unable to get groupid info for '%v' (%v)", s, lookup.Gid)
 	}
-	userId := uint32(id)
-	return userId, nil
+	userID := uint32(id)
+	return userID, nil
 }

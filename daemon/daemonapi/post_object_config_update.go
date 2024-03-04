@@ -14,7 +14,7 @@ import (
 	"github.com/opensvc/om3/util/key"
 )
 
-func (a *DaemonApi) PostObjectConfigUpdate(ctx echo.Context, namespace string, kind naming.Kind, name string, params api.PostObjectConfigUpdateParams) error {
+func (a *DaemonAPI) PostObjectConfigUpdate(ctx echo.Context, namespace string, kind naming.Kind, name string, params api.PostObjectConfigUpdateParams) error {
 	log := LogHandler(ctx, "PostObjectConfigUpdate")
 
 	if v, err := assertGrant(ctx, rbac.NewGrant(rbac.RoleAdmin, namespace), rbac.GrantRoot); !v {
@@ -63,18 +63,20 @@ func (a *DaemonApi) PostObjectConfigUpdate(ctx echo.Context, namespace string, k
 		if err := oc.Config().PrepareUpdate(deletes, unsets, sets); err != nil {
 			return JSONProblemf(ctx, http.StatusInternalServerError, "Update config", "%s", err)
 		}
-		if alerts, _ := oc.Config().Validate(); alerts.HasError() {
-			return JSONProblemf(ctx, http.StatusBadRequest, "Invalid configuration", "%s", alerts)
-		} else if len(alerts) > 0 {
-			JSONProblemf(ctx, http.StatusOK, "Configuration warnings", "%s", alerts)
+		alerts, err := oc.Config().Validate()
+		if err != nil {
+			return JSONProblemf(ctx, http.StatusInternalServerError, "Validate config", "%s", err)
+		}
+		if alerts.HasError() {
+			return JSONProblemf(ctx, http.StatusBadRequest, "Validate config", "%s", alerts.StringWithoutMeta())
 		}
 		if err := oc.Config().CommitInvalid(); err != nil {
 			return JSONProblemf(ctx, http.StatusInternalServerError, "Commit", "%s", err)
 		}
-		return nil
+		return ctx.NoContent(http.StatusNoContent)
 	}
 
-	for nodename, _ := range instanceConfigData {
+	for nodename := range instanceConfigData {
 		c, err := newProxyClient(ctx, nodename)
 		if err != nil {
 			return JSONProblemf(ctx, http.StatusInternalServerError, "New client", "%s: %s", nodename, err)

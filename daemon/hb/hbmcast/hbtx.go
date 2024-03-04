@@ -34,8 +34,8 @@ type (
 	}
 )
 
-// Id implements the Id function of Transmitter interface for tx
-func (t *tx) Id() string {
+// ID implements the ID function of Transmitter interface for tx
+func (t *tx) ID() string {
 	return t.id
 }
 
@@ -45,7 +45,7 @@ func (t *tx) Stop() error {
 	t.cancel()
 	for _, node := range t.nodes {
 		t.cmdC <- hbctrl.CmdDelWatcher{
-			HbId:     t.id,
+			HbID:     t.id,
 			Nodename: node,
 		}
 	}
@@ -68,7 +68,7 @@ func (t *tx) Start(cmdC chan<- interface{}, msgC <-chan []byte) error {
 		defer t.log.Infof("stopped")
 		for _, node := range t.nodes {
 			cmdC <- hbctrl.CmdAddWatcher{
-				HbId:     t.id,
+				HbID:     t.id,
 				Nodename: node,
 				Ctx:      ctx,
 				Timeout:  t.timeout,
@@ -121,7 +121,7 @@ func (t *tx) send(b []byte) {
 	msgLength := len(b)
 	total := msgLength / MaxChunkSize
 	if (msgLength % MaxChunkSize) != 0 {
-		total += 1
+		total++
 	}
 	if total > MaxFragments {
 		// the message will not be sent by this heart beat.
@@ -129,7 +129,7 @@ func (t *tx) send(b []byte) {
 			t.udpAddr, total, msgLength)
 		return
 	}
-	for i := 1; i <= total; i += 1 {
+	for i := 1; i <= total; i++ {
 		f := fragment{
 			MsgID: msgID,
 			Index: i,
@@ -154,7 +154,7 @@ func (t *tx) send(b []byte) {
 	for _, node := range t.nodes {
 		t.cmdC <- hbctrl.CmdSetPeerSuccess{
 			Nodename: node,
-			HbId:     t.id,
+			HbID:     t.id,
 			Success:  true,
 		}
 	}

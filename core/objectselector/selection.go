@@ -12,6 +12,7 @@ import (
 	"github.com/goombaio/orderedset"
 
 	"github.com/opensvc/om3/core/client"
+	"github.com/opensvc/om3/core/clientcontext"
 	"github.com/opensvc/om3/core/env"
 	"github.com/opensvc/om3/core/keyop"
 	"github.com/opensvc/om3/core/naming"
@@ -30,14 +31,14 @@ type (
 		client             *client.T
 		local              bool
 
-		// expandPaths is the cached result of Expand()
-		expandPaths naming.Paths
+		// cache is the cached result of Expand()
+		cache naming.Paths
 
-		// fromPaths is the list of path used by Expand() to expand paths from
+		// paths is the list of path used by Expand() to expand paths from
 		// selectorExpression
-		fromPaths naming.Paths
+		paths naming.Paths
 
-		installedSet *orderedset.OrderedSet
+		pathSet *orderedset.OrderedSet
 
 		isConfigFilterDisabled bool
 		needCheckFilters       bool
@@ -106,19 +107,19 @@ func WithServer(server string) funcopt.O {
 	})
 }
 
-// WithInstalled forces a list of naming.Path from where the filtering
+// WithPaths forces a list of naming.Path from where the filtering
 // will be done by Expand.
 // The daemon knows the path of objects with no local instance, so better
 // to use that instead of crawling etc/ via naming.InstalledPaths()
-func WithInstalled(installed naming.Paths) funcopt.O {
+func WithPaths(paths naming.Paths) funcopt.O {
 	return funcopt.F(func(i interface{}) error {
 		t := i.(*Selection)
-		t.fromPaths = installed
+		t.paths = paths
 		return nil
 	})
 }
 
-func (t Selection) String() string {
+func (t *Selection) String() string {
 	return fmt.Sprintf("Selection{%s}", t.selectorExpression)
 }
 
@@ -129,16 +130,16 @@ func (t Selection) String() string {
 // If executed on a cluster node, fallback to a local selector, which
 // looks up installed configuration files.
 func (t *Selection) Expand() (naming.Paths, error) {
-	if t.expandPaths != nil {
-		return t.expandPaths, nil
+	if t.cache != nil {
+		return t.cache, nil
 	}
 	if t.needCheckFilters {
 		if err := t.CheckFilters(); err != nil {
-			return t.expandPaths, err
+			return t.cache, err
 		}
 	}
 	err := t.expand()
-	return t.expandPaths, err
+	return t.cache, err
 }
 
 // CheckFilters checks the filters
@@ -190,34 +191,44 @@ func (t *Selection) ExpandSet() (*orderedset.OrderedSet, error) {
 	return s, nil
 }
 
-// SetInstalled sets the paths from where the selection Expand is done.
-func (t *Selection) SetInstalled(installed naming.Paths) {
-	t.fromPaths = installed
+// SetPaths sets the paths from where the selection Expand is done.
+func (t *Selection) SetPaths(installed naming.Paths) {
+	t.paths = installed
 	// we reset internal result cache to ensure next Expand evaluation
-	t.expandPaths = nil
+	t.cache = nil
 }
 
 func (t *Selection) add(p naming.Path) {
 	pathStr := p.String()
-	for _, e := range t.expandPaths {
+	for _, e := range t.cache {
 		if pathStr == e.String() {
 			return
 		}
 	}
-	t.expandPaths = append(t.expandPaths, p)
+	t.cache = append(t.cache, p)
 }
 
-func (t *Selection) expand() (err error) {
-	t.expandPaths = make(naming.Paths, 0)
+func (t *Selection) expand() error {
+	var (
+		err        error
+		usedExpand string
+	)
+	t.cache = make(naming.Paths, 0)
 	if t.local {
+		usedExpand = "local"
 		err = t.localExpand()
 	} else {
+		usedExpand = "daemon"
 		err = t.daemonExpand()
+		if err != nil && !clientcontext.IsSet() {
+			usedExpand = "fallback local"
+			err = t.localExpand()
+		}
 	}
 	if err != nil {
-		err = fmt.Errorf("selection can't expand with local %v: %w", t.local, err)
+		return fmt.Errorf("%s expand object selection: %w", usedExpand, err)
 	}
-	return
+	return nil
 }
 
 func (t *Selection) localExpand() error {
@@ -271,7 +282,7 @@ func (t *Selection) localExpandOne(s string) (*orderedset.OrderedSet, error) {
 func (t *Selection) localExpandOneNegative(s string) (*orderedset.OrderedSet, error) {
 	var (
 		positiveMatchSet *orderedset.OrderedSet
-		installedSet     *orderedset.OrderedSet
+		pathSet          *orderedset.OrderedSet
 		err              error
 	)
 	positiveExpression := strings.TrimLeft(s, expressionNegationPrefix)
@@ -279,12 +290,12 @@ func (t *Selection) localExpandOneNegative(s string) (*orderedset.OrderedSet, er
 	if err != nil {
 		return orderedset.NewOrderedSet(), err
 	}
-	installedSet, err = t.getInstalledSet()
+	pathSet, err = t.getPathSet()
 	if err != nil {
 		return orderedset.NewOrderedSet(), err
 	}
 	negativeMatchSet := orderedset.NewOrderedSet()
-	for _, i := range installedSet.Values() {
+	for _, i := range pathSet.Values() {
 		if !positiveMatchSet.Contains(i) {
 			negativeMatchSet.Add(i)
 		}
@@ -303,39 +314,39 @@ func (t *Selection) localExpandOnePositive(s string) (*orderedset.OrderedSet, er
 	}
 }
 
-// getInstalled returns the list of all expandPaths with a locally fromPaths
-// configuration file.
-func (t *Selection) getInstalled() (naming.Paths, error) {
-	if t.fromPaths != nil {
-		return t.fromPaths, nil
+// getPaths returns the list of paths set by the WithPaths() funcopt. If empty,
+// scan the the local configuration directory for paths.
+func (t *Selection) getPaths() (naming.Paths, error) {
+	if t.paths != nil {
+		return t.paths, nil
 	}
 	var err error
-	t.fromPaths, err = naming.InstalledPaths()
+	t.paths, err = naming.InstalledPaths()
 	if err != nil {
-		return t.fromPaths, err
+		return t.paths, err
 	}
-	return t.fromPaths, nil
+	return t.paths, nil
 }
 
-func (t *Selection) getInstalledSet() (*orderedset.OrderedSet, error) {
-	if t.installedSet != nil {
-		return t.installedSet, nil
+func (t *Selection) getPathSet() (*orderedset.OrderedSet, error) {
+	if t.pathSet != nil {
+		return t.pathSet, nil
 	}
-	installed, err := t.getInstalled()
+	paths, err := t.getPaths()
 	if err != nil {
-		return t.installedSet, err
+		return t.pathSet, err
 	}
-	t.installedSet = orderedset.NewOrderedSet()
-	for _, p := range installed {
-		t.installedSet.Add(p.String())
+	t.pathSet = orderedset.NewOrderedSet()
+	for _, path := range paths {
+		t.pathSet.Add(path.String())
 	}
-	return t.installedSet, nil
+	return t.pathSet, nil
 }
 
 func (t *Selection) localConfigExpand(s string) (*orderedset.OrderedSet, error) {
 	matching := orderedset.NewOrderedSet()
 	kop := keyop.Parse(s)
-	paths, err := t.getInstalled()
+	paths, err := t.getPaths()
 	if err != nil {
 		return matching, err
 	}
@@ -354,19 +365,19 @@ func (t *Selection) localConfigExpand(s string) (*orderedset.OrderedSet, error) 
 
 func (t *Selection) localExactExpand(s string) (*orderedset.OrderedSet, error) {
 	matching := orderedset.NewOrderedSet()
-	path, err := naming.ParsePath(s)
+	paths, err := t.getPaths()
 	if err != nil {
 		return matching, err
 	}
-	if path.Exists() {
-		matching.Add(path.String())
+	if _, ok := paths.StrMap()[s]; ok {
+		matching.Add(s)
 	}
 	return matching, nil
 }
 
 func (t *Selection) localFnmatchExpand(s string) (*orderedset.OrderedSet, error) {
 	matching := orderedset.NewOrderedSet()
-	paths, err := t.getInstalled()
+	paths, err := t.getPaths()
 	if err != nil {
 		return matching, err
 	}
@@ -386,7 +397,7 @@ func (t *Selection) daemonExpand() error {
 		c, err := client.New(
 			client.WithURL(t.server),
 			client.WithUsername(hostname.Hostname()),
-			client.WithPassword(rawconfig.ClusterSection().Secret),
+			client.WithPassword(rawconfig.GetClusterSection().Secret),
 		)
 		if err != nil {
 			return fmt.Errorf("create client: %w", err)
@@ -404,7 +415,7 @@ func (t *Selection) daemonExpand() error {
 		return fmt.Errorf("unexpected get objects selector status %s", resp.Status)
 	} else {
 		defer func() { _ = resp.Body.Close() }()
-		return json.NewDecoder(resp.Body).Decode(&t.expandPaths)
+		return json.NewDecoder(resp.Body).Decode(&t.cache)
 	}
 }
 

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/goccy/go-json"
+	"encoding/json"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
@@ -72,7 +72,7 @@ func Setup(t *testing.T) (testhelper.Env, func()) {
 func GetClient(t *testing.T) (*client.T, error) {
 	t.Helper()
 	t.Logf("create client")
-	cli, err := client.New(client.WithURL(daemonenv.UrlInetHttp()))
+	cli, err := client.New(client.WithURL(daemonenv.HTTPLocalURL()))
 	require.Nil(t, err)
 	return cli, err
 }

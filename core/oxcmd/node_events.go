@@ -8,7 +8,7 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/goccy/go-json"
+	"encoding/json"
 
 	"github.com/opensvc/om3/core/client"
 	"github.com/opensvc/om3/core/clientcontext"
@@ -46,7 +46,7 @@ type (
 )
 
 var (
-	evReadError = fmt.Errorf("event read error")
+	errEventRead = fmt.Errorf("event read error")
 )
 
 func (c *templateHelper) passSet(s string, b bool) (changed bool) {
@@ -201,7 +201,7 @@ func (t *CmdNodeEvents) doNodes() error {
 			select {
 			case <-ctx.Done():
 				if t.templ != nil && t.Wait && !t.helper.Success {
-					err := fmt.Errorf("wait failed after %s (%s)\n", time.Now().Sub(now), ctx.Err())
+					err := fmt.Errorf("wait failed after %s (%s)", time.Now().Sub(now), ctx.Err())
 					return err
 				}
 				return ctx.Err()
@@ -223,7 +223,7 @@ func (t *CmdNodeEvents) doNodes() error {
 				}
 				if t.Limit > 0 && count >= t.Limit {
 					if t.templ != nil && t.Wait && !t.helper.Success {
-						err := fmt.Errorf("wait failed after %s (event count limit)\n", time.Now().Sub(now))
+						err := fmt.Errorf("wait failed after %s (event count limit)", time.Now().Sub(now))
 						return err
 					}
 					return nil
@@ -285,7 +285,7 @@ func (t *CmdNodeEvents) nodeEventLoop(ctx context.Context, nodename string) {
 			}
 			retries++
 			if retries > maxRetries {
-				t.errC <- evReadError
+				t.errC <- errEventRead
 				return
 			} else if retries == 1 {
 				_, _ = fmt.Fprintf(os.Stderr, "event read failed for node %s: '%s'\n", nodename, err)

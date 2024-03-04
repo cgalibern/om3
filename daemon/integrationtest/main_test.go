@@ -20,6 +20,7 @@ import (
 	"github.com/opensvc/om3/daemon/api"
 	"github.com/opensvc/om3/daemon/msgbus"
 	"github.com/opensvc/om3/testhelper"
+	"github.com/opensvc/om3/util/hostname"
 )
 
 func Test_Setup(t *testing.T) {
@@ -113,7 +114,7 @@ func Test_daemon(t *testing.T) {
 			resp, err := cli.PostObjectConfigUpdateWithResponse(ctx,
 				"root", "ccfg", "cluster", &params)
 			require.NoError(t, err)
-			require.Equalf(t, http.StatusOK, resp.StatusCode(), "body: %s", resp.Body)
+			require.Equalf(t, http.StatusNoContent, resp.StatusCode(), "body: %s", resp.Body)
 		})
 		require.False(t, t.Failed(), "abort test")
 
@@ -247,6 +248,40 @@ func Test_daemon(t *testing.T) {
 			}
 		})
 		require.False(t, t.Failed(), "abort test")
+		t.Log("Test")
+		t.Run("get /node/name/{nodename}/system/... must return 404 if package cache not yet present", func(t *testing.T) {
+			testCases := map[string]func(context.Context, string, ...api.RequestEditorFn) (*http.Response, error){
+				"package":       cli.GetNodeSystemPackage,
+				"patch":         cli.GetNodeSystemPatch,
+				"disk":          cli.GetNodeSystemDisk,
+				"group":         cli.GetNodeSystemGroup,
+				"hardware":      cli.GetNodeSystemHardware,
+				"ipaddress":     cli.GetNodeSystemIPAddress,
+				"property":      cli.GetNodeSystemProperty,
+				"san/initiator": cli.GetNodeSystemSANInitiator,
+				"san/path":      cli.GetNodeSystemSANPath,
+				"user":          cli.GetNodeSystemUser,
+			}
+			for s, f := range testCases {
+				t.Run("GET /node/name/{nodename}/system/"+s, func(t *testing.T) {
+
+					resp, err := f(ctx, hostname.Hostname())
+					require.NoError(t, err, "unexpected error during cli.GetNodeSystemPackageWithResponse")
+					require.Equalf(t, http.StatusNotFound, resp.StatusCode, "body: %s", resp.Body)
+				})
+			}
+		})
+		require.False(t, t.Failed(), "abort test")
+
+		t.Run("get /node/name/{nodename}/system/package must return package cache if present", func(t *testing.T) {
+			env.InstallFile("./testdata/package.json", "var/node/package.json")
+			resp, err := cli.GetNodeSystemPackageWithResponse(ctx, hostname.Hostname())
+			require.NoError(t, err, "unexpected error during cli.GetNodeSystemPackageWithResponse")
+			require.Equalf(t, http.StatusOK, resp.StatusCode(), "body: %s", resp.Body)
+			require.Len(t, resp.JSON200.Items, 2)
+			require.Equalf(t, "foo", resp.JSON200.Items[0].Data.Name, "can't find foo package")
+		})
+		require.False(t, t.Failed(), "abort test")
 
 		t.Run("post object config update on cluster to delete cluster.vip", func(t *testing.T) {
 			params := api.PostObjectConfigUpdateParams{
@@ -255,7 +290,7 @@ func Test_daemon(t *testing.T) {
 			resp, err := cli.PostObjectConfigUpdateWithResponse(ctx,
 				"root", "ccfg", "cluster", &params)
 			require.NoError(t, err, "can't post config update")
-			require.Equalf(t, http.StatusOK, resp.StatusCode(), "body: %s", resp.Body)
+			require.Equalf(t, http.StatusNoContent, resp.StatusCode(), "body: %s", resp.Body)
 		})
 		require.False(t, t.Failed(), "abort test")
 

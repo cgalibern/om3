@@ -101,14 +101,14 @@ func (t *CompNodeconfs) Add(s string) error {
 	}
 	for _, rule := range data {
 		if rule.Key == "" {
-			return fmt.Errorf("key is mandatory in dict : %s \n", s)
+			return fmt.Errorf("key is mandatory in dict : %s", s)
 		}
 		if !(rule.Op == "=" || rule.Op == ">=" || rule.Op == "<=" || rule.Op == "unset") {
-			return fmt.Errorf("op is mandatory (and must be in =, >=, <=, unset) in dict : %s \n", s)
+			return fmt.Errorf("op is mandatory (and must be in =, >=, <=, unset) in dict : %s", s)
 		}
 		if rule.Value == nil {
 			if rule.Op != "unset" {
-				return fmt.Errorf("value is mandatory (except if operator is unset) in dict : %s \n", s)
+				return fmt.Errorf("value is mandatory (except if operator is unset) in dict : %s", s)
 			}
 		} else {
 			rule.Value = fmt.Sprint(rule.Value)
@@ -209,7 +209,7 @@ func (t CompNodeconfs) fixRule(rule CompNodeconf) ExitCode {
 		}
 		return ExitOk
 	}
-	if err := n.Config().SetKeys(*keyop.Parse(rule.Key + "=" + rule.Value.(string))); err != nil {
+	if err := n.Config().Set(*keyop.Parse(rule.Key + "=" + rule.Value.(string))); err != nil {
 		t.Errorf("error when trying to set the rule: %s\n", err)
 		return ExitNok
 	}

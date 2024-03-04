@@ -47,8 +47,8 @@ func (t *CmdObjectUnset) Run(selector, kind string) error {
 			return err
 		}
 		switch response.StatusCode() {
-		case 200:
-			return nil
+		case 204:
+			fmt.Printf("%s: commited\n", p)
 		case 400:
 			return fmt.Errorf("%s: %s", p, *response.JSON400)
 		case 401:
@@ -81,11 +81,13 @@ func (t *CmdObjectUnset) doObjectAction(mergedSelector string) error {
 			ctx = actioncontext.WithLockDisabled(ctx, t.Disable)
 			ctx = actioncontext.WithLockTimeout(ctx, t.Timeout)
 			kws := key.ParseStrings(t.Keywords)
+			var changed bool
 			if len(kws) > 0 {
 				log.Debug().Msgf("unsetting %s keywords: %s", p, kws)
 				if err = o.Unset(ctx, kws...); err != nil {
 					return nil, err
 				}
+				changed = true
 			}
 			sections := make([]string, 0)
 			for _, r := range t.Sections {
@@ -98,6 +100,10 @@ func (t *CmdObjectUnset) doObjectAction(mergedSelector string) error {
 				if err = o.DeleteSection(ctx, sections...); err != nil {
 					return nil, err
 				}
+				changed = true
+			}
+			if changed {
+				fmt.Printf("%s: commited\n", p)
 			}
 			return nil, nil
 		}),

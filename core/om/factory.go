@@ -1,7 +1,9 @@
 package om
 
 import (
+	// Necessary to use go:embed
 	_ "embed"
+
 	"time"
 
 	"github.com/spf13/cobra"
@@ -378,7 +380,7 @@ func newCmdDaemonStart() *cobra.Command {
 	flags := cmd.Flags()
 	addFlagsGlobal(flags, &options.OptsGlobal)
 	addFlagForeground(flags, &options.Foreground)
-	addFlagCpuProfile(flags, &options.CpuProfile)
+	addFlagCPUProfile(flags, &options.CPUProfile)
 	return cmd
 }
 
@@ -577,8 +579,8 @@ func newCmdNetworkSetup() *cobra.Command {
 	return cmd
 }
 
-func newCmdNetworkIpLs() *cobra.Command {
-	var options commands.CmdNetworkIpLs
+func newCmdNetworkIPLs() *cobra.Command {
+	var options commands.CmdNetworkIPLs
 	cmd := &cobra.Command{
 		Use:   "ls",
 		Short: "list the ip in the cluster networks",

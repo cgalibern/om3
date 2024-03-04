@@ -11,7 +11,7 @@ import (
 	"github.com/opensvc/om3/util/pubsub"
 )
 
-func (a *DaemonApi) PostDaemonStop(ctx echo.Context, nodename string) error {
+func (a *DaemonAPI) PostDaemonStop(ctx echo.Context, nodename string) error {
 	if nodename == a.localhost {
 		return a.localPostDaemonStop(ctx)
 	} else if !clusternode.Has(nodename) {
@@ -31,13 +31,13 @@ func (a *DaemonApi) PostDaemonStop(ctx echo.Context, nodename string) error {
 
 }
 
-func (a *DaemonApi) localPostDaemonStop(ctx echo.Context) error {
+func (a *DaemonAPI) localPostDaemonStop(ctx echo.Context) error {
 	log := LogHandler(ctx, "PostDaemonStop")
 	log.Debugf("starting")
 
 	a.announceNodeState(log, node.MonitorStateMaintenance)
 
 	a.EventBus.Pub(&msgbus.DaemonCtl{Component: "daemon", Action: "stop"},
-		pubsub.Label{"id", "daemon"}, labelApi, a.LabelNode)
+		pubsub.Label{"id", "daemon"}, labelAPI, a.LabelNode)
 	return JSONProblem(ctx, http.StatusOK, "announce maintenance state and ask daemon to stop", "")
 }

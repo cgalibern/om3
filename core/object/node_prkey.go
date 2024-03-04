@@ -21,7 +21,7 @@ func validatePRKey(s string) error {
 	length := len(s)
 	if rest := length % 2; rest != 0 {
 		s = "0" + s
-		length += 1
+		length++
 	}
 	if length < minLength {
 		err := fmt.Errorf("prkey %s is too short: %d < %d chars", s, length, minLength)
@@ -59,7 +59,7 @@ func (t Node) PRKey() (string, error) {
 			Op:    keyop.Set,
 			Value: prkey,
 		}
-		if err := t.config.SetKeys(op); err != nil {
+		if err := t.config.Set(op); err != nil {
 			return "", err
 		}
 		if err := t.config.Commit(); err != nil {

@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	HttpPort = 1215
+	HTTPPort = 1215
 
 	DrainChanDuration = 40 * time.Millisecond
 
@@ -25,8 +25,8 @@ var (
 	// Groupname is the current group name from user.Current, or "root" if user.LookupGroupId has error
 	Groupname string
 
-	// BaseHttpSock is the basename of http listener unix socket
-	BaseHttpSock = "http.sock"
+	// HTTPUnixFileBasename is the basename of http listener unix socket
+	HTTPUnixFileBasename = "http.sock"
 )
 
 func CAKeyFile() string {
@@ -53,28 +53,28 @@ func KeyFile() string {
 	return filepath.Join(rawconfig.Paths.Certs, "private_key")
 }
 
-func UrlInetHttp() string {
-	return fmt.Sprintf("https://localhost:%d", HttpPort)
-}
-
-func UrlHttpNode(node string) string {
-	return fmt.Sprintf("https://%s:%d", node, HttpPort)
-}
-
-func UrlHttpNodeAndPort(node, port string) string {
-	return fmt.Sprintf("https://%s:%s", node, port)
-}
-
-func UrlUxHttp() string {
-	return "http://" + PathUxHttp()
-}
-
-func PathUxProfile() string {
+func ProfileUnixFile() string {
 	return filepath.Join(rawconfig.Paths.Lsnr, "profile.sock")
 }
 
-func PathUxHttp() string {
-	return filepath.Join(rawconfig.Paths.Lsnr, BaseHttpSock)
+func HTTPUnixFile() string {
+	return filepath.Join(rawconfig.Paths.Lsnr, HTTPUnixFileBasename)
+}
+
+func HTTPLocalURL() string {
+	return fmt.Sprintf("https://localhost:%d", HTTPPort)
+}
+
+func HTTPNodeURL(node string) string {
+	return fmt.Sprintf("https://%s:%d", node, HTTPPort)
+}
+
+func HTTPNodeAndPortURL(node, port string) string {
+	return fmt.Sprintf("https://%s:%s", node, port)
+}
+
+func HTTPUnixURL() string {
+	return "http://" + HTTPUnixFile()
 }
 
 func init() {

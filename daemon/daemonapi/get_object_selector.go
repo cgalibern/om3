@@ -10,13 +10,13 @@ import (
 	"github.com/opensvc/om3/daemon/api"
 )
 
-func (a *DaemonApi) GetObjectPaths(ctx echo.Context, params api.GetObjectPathsParams) error {
+func (a *DaemonAPI) GetObjectPaths(ctx echo.Context, params api.GetObjectPathsParams) error {
 	log := LogHandler(ctx, "GetObjectPaths")
 	log.Debugf("starting")
 	paths := object.StatusData.GetPaths()
 	selection := objectselector.New(
 		params.Path,
-		objectselector.WithInstalled(paths),
+		objectselector.WithPaths(paths),
 		objectselector.WithLocal(true),
 	)
 	matchedPaths, err := selection.Expand()

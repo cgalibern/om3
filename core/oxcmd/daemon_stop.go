@@ -59,7 +59,7 @@ func (t *CmdDaemonStop) doNodes() error {
 			needDoLocal = true
 			continue
 		}
-		running += 1
+		running++
 		go func(nodename string) {
 			err := t.doNode(ctx, c, nodename)
 			errC <- err
@@ -72,7 +72,7 @@ func (t *CmdDaemonStop) doNodes() error {
 		}
 		err := <-errC
 		errs = errors.Join(errs, err)
-		running -= 1
+		running--
 	}
 	if needDoLocal {
 		err := t.doNode(ctx, c, hostname.Hostname())

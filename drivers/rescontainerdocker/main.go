@@ -100,16 +100,16 @@ var (
 	// Allocate a single client socket for all container.docker resources
 	// Get/Init it via cli()
 	clientCache *docker.Client
-	imageCache  = NewImageCacheMap()
+	imageCache  = newImageCacheMap()
 )
 
-func NewImageCacheMap() *imageCacheMap {
+func newImageCacheMap() *imageCacheMap {
 	return &imageCacheMap{
 		m: make(map[string]imageapi.Image),
 	}
 }
 
-func (t imageCacheMap) Get(name string) (imageapi.Image, bool) {
+func (t *imageCacheMap) Get(name string) (imageapi.Image, bool) {
 	t.mu.Lock()
 	img, ok := t.m[name]
 	t.mu.Unlock()
@@ -814,7 +814,7 @@ func (t T) dnsSearch() []string {
 	if !t.needDNS() {
 		return []string{}
 	}
-	dom0 := naming.NewFQDN(t.Path, rawconfig.ClusterSection().Name).Domain()
+	dom0 := naming.NewFQDN(t.Path, rawconfig.GetClusterSection().Name).Domain()
 	dom1 := strings.SplitN(dom0, ".", 2)[1]
 	dom2 := strings.SplitN(dom1, ".", 2)[1]
 	return []string{dom0, dom1, dom2}

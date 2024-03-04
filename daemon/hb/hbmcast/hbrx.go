@@ -40,8 +40,8 @@ type (
 	dataMap  map[int][]byte
 )
 
-// Id implements the Id function of the Receiver interface for rx
-func (t *rx) Id() string {
+// ID implements the ID function of the Receiver interface for rx
+func (t *rx) ID() string {
 	return t.id
 }
 
@@ -51,7 +51,7 @@ func (t *rx) Stop() error {
 	t.cancel()
 	for _, node := range t.nodes {
 		t.cmdC <- hbctrl.CmdDelWatcher{
-			HbId:     t.id,
+			HbID:     t.id,
 			Nodename: node,
 		}
 	}
@@ -75,7 +75,7 @@ func (t *rx) Start(cmdC chan<- interface{}, msgC chan<- *hbtype.Msg) error {
 		defer t.Done()
 		for _, node := range t.nodes {
 			cmdC <- hbctrl.CmdAddWatcher{
-				HbId:     t.id,
+				HbID:     t.id,
 				Nodename: node,
 				Ctx:      ctx,
 				Timeout:  t.timeout,
@@ -182,7 +182,7 @@ func (t *rx) recv(src *net.UDPAddr, n int, b []byte) {
 	var encMsg *omcrypto.Message
 	if f.Total > 1 {
 		var message []byte
-		for i := 1; i <= f.Total; i += 1 {
+		for i := 1; i <= f.Total; i++ {
 			chunk, ok := chunks[i]
 			if !ok {
 				t.log.Warnf("missing fragment %d in msg %s from src %s => purge", i, f.MsgID, s)
@@ -210,7 +210,7 @@ func (t *rx) recv(src *net.UDPAddr, n int, b []byte) {
 	}
 	t.cmdC <- hbctrl.CmdSetPeerSuccess{
 		Nodename: data.Nodename,
-		HbId:     t.id,
+		HbID:     t.id,
 		Success:  true,
 	}
 	t.msgC <- &data

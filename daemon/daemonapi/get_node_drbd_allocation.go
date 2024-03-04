@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 
-	"github.com/opensvc/om3/core/clusternode"
+	"github.com/opensvc/om3/core/client"
 	"github.com/opensvc/om3/daemon/api"
 	"github.com/opensvc/om3/daemon/rbac"
 	"github.com/opensvc/om3/util/drbd"
@@ -42,7 +42,7 @@ func (t *pendingDRBDAllocationsMap) minors() []int {
 	i := 0
 	for _, a := range t.m {
 		l[i] = a.Minor
-		i += 1
+		i++
 	}
 	return l
 }
@@ -52,7 +52,7 @@ func (t *pendingDRBDAllocationsMap) ports() []int {
 	i := 0
 	for _, a := range t.m {
 		l[i] = a.Port
-		i += 1
+		i++
 	}
 	return l
 }
@@ -67,40 +67,26 @@ func (t *pendingDRBDAllocationsMap) expire() {
 }
 
 func (t *pendingDRBDAllocationsMap) add(a api.DRBDAllocation) {
-	t.m[a.Id] = a
+	t.m[a.ID] = a
 }
 
 func init() {
 	pendingDRBDAllocations = newPendingDRBDAllocationsMap()
 }
 
-func (a *DaemonApi) GetNodeDRBDAllocation(ctx echo.Context, nodename string) error {
+func (a *DaemonAPI) GetNodeDRBDAllocation(ctx echo.Context, nodename string) error {
 	if v, err := assertGrant(ctx, rbac.GrantRoot); !v {
 		return err
 	}
 	if a.localhost == nodename {
 		return a.getLocalNodeDRBDAllocation(ctx)
-	} else if !clusternode.Has(nodename) {
-		return JSONProblemf(ctx, http.StatusBadRequest, "Invalid parameters", "%s is not a cluster node", nodename)
-	} else {
-		return a.getPeerDRBDAllocation(ctx, nodename)
 	}
+	return a.proxy(ctx, nodename, func(c *client.T) (*http.Response, error) {
+		return c.GetNodeDRBDAllocation(ctx.Request().Context(), nodename)
+	})
 }
 
-func (a *DaemonApi) getPeerDRBDAllocation(ctx echo.Context, nodename string) error {
-	c, err := newProxyClient(ctx, nodename)
-	if err != nil {
-		return JSONProblemf(ctx, http.StatusInternalServerError, "New client", "%s: %s", nodename, err)
-	}
-	if resp, err := c.GetNodeDRBDAllocationWithResponse(ctx.Request().Context(), nodename); err != nil {
-		return JSONProblemf(ctx, http.StatusInternalServerError, "Request peer", "%s: %s", nodename, err)
-	} else if len(resp.Body) > 0 {
-		return ctx.JSONBlob(resp.StatusCode(), resp.Body)
-	}
-	return nil
-}
-
-func (a *DaemonApi) getLocalNodeDRBDAllocation(ctx echo.Context) error {
+func (a *DaemonAPI) getLocalNodeDRBDAllocation(ctx echo.Context) error {
 	log := LogHandler(ctx, "GetNodeDRBDAllocation")
 	log.Debugf("starting")
 
@@ -109,7 +95,7 @@ func (a *DaemonApi) getLocalNodeDRBDAllocation(ctx echo.Context) error {
 	pendingDRBDAllocations.expire()
 
 	resp := api.DRBDAllocation{
-		Id:        uuid.New(),
+		ID:        uuid.New(),
 		ExpiredAt: time.Now().Add(5 * time.Second),
 	}
 

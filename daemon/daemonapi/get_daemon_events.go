@@ -33,7 +33,7 @@ type (
 )
 
 // GetDaemonEvents feeds node daemon event publications in rss format.
-func (a *DaemonApi) GetDaemonEvents(ctx echo.Context, nodename string, params api.GetDaemonEventsParams) error {
+func (a *DaemonAPI) GetDaemonEvents(ctx echo.Context, nodename string, params api.GetDaemonEventsParams) error {
 	if nodename == a.localhost || nodename == "localhost" {
 		return a.getLocalDaemonEvents(ctx, params)
 	} else if !clusternode.Has(nodename) {
@@ -43,7 +43,7 @@ func (a *DaemonApi) GetDaemonEvents(ctx echo.Context, nodename string, params ap
 	}
 }
 
-func (a *DaemonApi) getPeerDaemonEvents(ctx echo.Context, nodename string, params api.GetDaemonEventsParams) error {
+func (a *DaemonAPI) getPeerDaemonEvents(ctx echo.Context, nodename string, params api.GetDaemonEventsParams) error {
 	var (
 		handlerName   = "getPeerDaemonEvents"
 		limit         uint64
@@ -120,7 +120,7 @@ func (a *DaemonApi) getPeerDaemonEvents(ctx echo.Context, nodename string, param
 
 // getLocalDaemonEvents feeds publications in rss format.
 // TODO: Honor subscribers params.
-func (a *DaemonApi) getLocalDaemonEvents(ctx echo.Context, params api.GetDaemonEventsParams) error {
+func (a *DaemonAPI) getLocalDaemonEvents(ctx echo.Context, params api.GetDaemonEventsParams) error {
 	if v, err := assertRole(ctx, rbac.RoleRoot, rbac.RoleJoin); err != nil {
 		return err
 	} else if !v {
@@ -132,11 +132,20 @@ func (a *DaemonApi) getLocalDaemonEvents(ctx echo.Context, params api.GetDaemonE
 		eventCount  uint64
 		err         error
 
-		// for selector
-		selector     *objectselector.Selection
+		// hasSelector is true when param.Selector is defined and not ""
+		hasSelector bool
+		// pathL list of all cluster object paths
+		pathL naming.Paths
+		// pathM all cluster object paths
+		pathM naming.M
+		// selector is used to expand param.Selector vs pathL
+		selector *objectselector.Selection
+		// pathSelected is a map of currently selected object paths
 		pathSelected naming.M
-		pathM        naming.M
-		pathL        naming.Paths
+		// filterM is a map indexed on requested filter identifiers.
+		// It is used to differentiate requested filters from extra filters
+		// added for object selection but not for response event stream.
+		filterM = make(map[string]any)
 
 		evCtx  = ctx.Request().Context()
 		cancel context.CancelFunc
@@ -153,6 +162,40 @@ func (a *DaemonApi) getLocalDaemonEvents(ctx echo.Context, params api.GetDaemonE
 		}
 	}
 
+	// needForwardEvent returns true when event needs to be forwarded to
+	// response event stream because it matches one of param.Filters
+	needForwardEvent := func(kind string, m pubsub.Messager) bool {
+		labels := m.GetLabels()
+		for _, k := range labels.Keys() {
+			// need verify both kind:label and nil:label
+			for _, s := range []string{kind + ":" + k, kind + ":" + k} {
+				if _, ok := filterM[s]; ok {
+					return true
+				}
+			}
+		}
+		return false
+	}
+
+	// isSelected returns true when msg has path label that is selected or
+	// doesn't have a path label.
+	isSelected := func(msg pubsub.Messager) bool {
+		labels := msg.GetLabels()
+		if s, ok := labels["path"]; ok {
+			if pathSelected.Has(s) {
+				// path label is selected
+				return true
+			}
+			// path label is not selected
+			return false
+		}
+		// no path label
+		return true
+	}
+
+	if params.Selector != nil && *params.Selector != "" {
+		hasSelector = true
+	}
 	if params.Limit != nil {
 		limit = uint64(*params.Limit)
 	}
@@ -191,17 +234,40 @@ func (a *DaemonApi) getLocalDaemonEvents(ctx echo.Context, params api.GetDaemonE
 	for _, filter := range filters {
 		if filter.Kind == nil {
 			log.Debugf("filtering %v %v", filter.Kind, filter.Labels)
+			filterM[pubsub.FilterFmt("", filter.Labels...)] = nil
 		} else if kind, ok := filter.Kind.(event.Kinder); ok {
 			log.Debugf("filtering %s %v", kind.Kind(), filter.Labels)
+			filterM[pubsub.FilterFmt(kind.Kind(), filter.Labels...)] = nil
 		} else {
 			log.Warnf("skip filtering of %s %v", reflect.TypeOf(filter.Kind), filter.Labels)
 			continue
 		}
 		sub.AddFilter(filter.Kind, filter.Labels...)
 	}
-	if params.Selector != nil && len(filters) != 0 {
-		sub.AddFilter(&msgbus.ObjectCreated{})
-		sub.AddFilter(&msgbus.ObjectDeleted{}, pubsub.Label{"node", a.localhost})
+	if hasSelector && len(filterM) == 0 {
+		// no filters => all events must be forwarded, add ObjectCreated &
+		// ObjectDeleted to filterM to simulate client has asked for them
+		filterM["ObjectCreated:"] = nil
+		filterM["ObjectDeleted:{node="+a.localhost+"}"] = nil
+	}
+
+	if hasSelector {
+		// when request filters don't match ObjectCreated or
+		// ObjectDeleted,node=<localhost>. We create "hidden" filter for them.
+		// "hidden" because such messages don't require to be forwarded
+		// to response event stream.
+		createdMsg := &msgbus.ObjectCreated{}
+		createdMsg.AddLabels(a.LabelNode)
+		if !needForwardEvent("ObjectCreated", createdMsg) {
+			log.Debugf("add hidden filtering: ObjectCreated")
+			sub.AddFilter(&msgbus.ObjectCreated{})
+		}
+		deleteMsg := &msgbus.ObjectDeleted{}
+		deleteMsg.AddLabels(a.LabelNode)
+		if !needForwardEvent("ObjectDeleted", deleteMsg) {
+			log.Debugf("add hidden filtering: ObjectDeleted,node=%s", a.localhost)
+			sub.AddFilter(&msgbus.ObjectDeleted{}, pubsub.Label{"node", a.localhost})
+		}
 	}
 	sub.Start()
 	defer func() {
@@ -209,12 +275,12 @@ func (a *DaemonApi) getLocalDaemonEvents(ctx echo.Context, params api.GetDaemonE
 			log.Debugf("sub.Stop: %s", err)
 		}
 	}()
-	if params.Selector != nil {
+	if hasSelector {
 		pathL = object.StatusData.GetPaths()
 		pathM = pathL.StrMap()
 		selector = objectselector.New(
 			*params.Selector,
-			objectselector.WithInstalled(pathL),
+			objectselector.WithPaths(pathL),
 			objectselector.WithLocal(true),
 			objectselector.WithConfigFilterDisabled(),
 		)
@@ -224,8 +290,8 @@ func (a *DaemonApi) getLocalDaemonEvents(ctx echo.Context, params api.GetDaemonE
 		}
 		if selected, err := getSelectedMap(); err != nil {
 			return JSONProblemf(ctx, http.StatusInternalServerError,
-				"get object paths", "from selector %s: %s", params.Selector,
-				err)
+				"get object paths", "from selector %s: %s",
+				*params.Selector, err)
 		} else {
 			pathSelected = selected
 		}
@@ -242,42 +308,71 @@ func (a *DaemonApi) getLocalDaemonEvents(ctx echo.Context, params api.GetDaemonE
 		case <-evCtx.Done():
 			return nil
 		case i := <-sub.C:
-			if params.Selector != nil {
+			if hasSelector {
 				switch ev := i.(type) {
 				case *msgbus.ObjectCreated:
 					s := ev.Path.String()
 					if !pathM.Has(s) {
 						pathL = pathL.Merge([]naming.Path{ev.Path})
 						pathM[s] = nil
-						selector.SetInstalled(pathL)
+						selector.SetPaths(pathL)
 						if selected, err := getSelectedMap(); err != nil {
 							log.Errorf("can't filter on object created")
 							return err
 						} else if selected.Has(s) {
-							log.Infof("add created object %s to selection", s)
+							log.Debugf("add created object %s to selection", s)
 							pathSelected[s] = nil
 						}
 					}
-					continue
+					if !needForwardEvent("ObjectCreated", ev) {
+						// not required on response stream
+						continue
+					}
+					if !isSelected(ev) {
+						// message is not for selected path
+						continue
+					}
+					// message will be forwarded
 				case *msgbus.ObjectDeleted:
-					if params.Selector != nil {
-						if ev.GetLabels()["node"] != a.localhost {
-							continue
-						}
+					notAnymoreSelected := false
+					if ev.GetLabels()["node"] == a.localhost {
 						s := ev.Path.String()
 						if pathSelected.Has(s) {
-							log.Infof("remove deleted object %s from selection", s)
+							notAnymoreSelected = true
+							log.Debugf("remove deleted object %s from selection", s)
 							delete(pathSelected, s)
 						}
-						delete(pathM, s)
+						if _, ok := pathM[s]; ok {
+							delete(pathM, s)
+							// TODO implement naming.Paths.Drop(p naming.Path)
+							newPathL := make(naming.Paths, 0)
+							for _, p := range pathL {
+								if p.Equal(ev.Path) {
+									continue
+								}
+								newPathL = append(newPathL, p)
+							}
+							pathL = newPathL
+						}
 					}
-					continue
-				}
-				// discard events with path label not matching the selector.
-				msg := i.(pubsub.Messager)
-				labels := msg.GetLabels()
-				if s, ok := labels["path"]; ok && !pathSelected.Has(s) {
-					continue
+					if !needForwardEvent("ObjectDeleted", ev) {
+						// not required on response stream
+						continue
+					}
+					if notAnymoreSelected {
+						// message from a previously selected path, that will
+						// be now discarted, we have to send this last message
+					} else if !isSelected(ev) {
+						// message is not for selected path
+						continue
+					}
+					// message will be forwarded
+				case pubsub.Messager:
+					if !isSelected(ev) {
+						// message is not for selected path
+						continue
+					}
+					// message will be forwarded
 				}
 			}
 			ev := event.ToEvent(i, evCounter)

@@ -10,7 +10,7 @@ import (
 	"github.com/opensvc/om3/util/pubsub"
 )
 
-func (a *DaemonApi) PostDaemonSubAction(ctx echo.Context) error {
+func (a *DaemonAPI) PostDaemonSubAction(ctx echo.Context) error {
 	log := LogHandler(ctx, "PostDaemonSubAction")
 	log.Debugf("starting")
 
@@ -38,7 +38,7 @@ func (a *DaemonApi) PostDaemonSubAction(ctx echo.Context) error {
 	log.Infof("asking to %s sub components: %s", action, subs)
 	for _, sub := range payload.Subs {
 		log.Infof("ask to %s sub component: %s", action, sub)
-		a.EventBus.Pub(&msgbus.DaemonCtl{Component: sub, Action: action}, pubsub.Label{"id", sub}, labelApi)
+		a.EventBus.Pub(&msgbus.DaemonCtl{Component: sub, Action: action}, pubsub.Label{"id", sub}, labelAPI)
 	}
 	return JSONProblemf(ctx, http.StatusOK, "daemon routines action queued", "%s %s", action, subs)
 }

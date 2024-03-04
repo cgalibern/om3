@@ -6,23 +6,22 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 
-	"github.com/opensvc/om3/core/clusternode"
+	"github.com/opensvc/om3/core/client"
 	"github.com/opensvc/om3/core/naming"
 	"github.com/opensvc/om3/daemon/api"
 	"github.com/opensvc/om3/daemon/rbac"
 )
 
-func (a *DaemonApi) PostInstanceActionStop(ctx echo.Context, nodename, namespace string, kind naming.Kind, name string, params api.PostInstanceActionStopParams) error {
+func (a *DaemonAPI) PostInstanceActionStop(ctx echo.Context, nodename, namespace string, kind naming.Kind, name string, params api.PostInstanceActionStopParams) error {
 	if a.localhost == nodename {
 		return a.postLocalInstanceActionStop(ctx, namespace, kind, name, params)
-	} else if !clusternode.Has(nodename) {
-		return JSONProblemf(ctx, http.StatusBadRequest, "Invalid parameters", "%s is not a cluster node", nodename)
-	} else {
-		return a.postPeerInstanceActionStop(ctx, nodename, namespace, kind, name, params)
 	}
+	return a.proxy(ctx, nodename, func(c *client.T) (*http.Response, error) {
+		return c.PostInstanceActionStop(ctx.Request().Context(), nodename, namespace, kind, name, &params)
+	})
 }
 
-func (a *DaemonApi) postPeerInstanceActionStop(ctx echo.Context, nodename, namespace string, kind naming.Kind, name string, params api.PostInstanceActionStopParams) error {
+func (a *DaemonAPI) postPeerInstanceActionStop(ctx echo.Context, nodename, namespace string, kind naming.Kind, name string, params api.PostInstanceActionStopParams) error {
 	c, err := newProxyClient(ctx, nodename)
 	if err != nil {
 		return JSONProblemf(ctx, http.StatusInternalServerError, "New client", "%s: %s", nodename, err)
@@ -35,7 +34,7 @@ func (a *DaemonApi) postPeerInstanceActionStop(ctx echo.Context, nodename, names
 	return nil
 }
 
-func (a *DaemonApi) postLocalInstanceActionStop(ctx echo.Context, namespace string, kind naming.Kind, name string, params api.PostInstanceActionStopParams) error {
+func (a *DaemonAPI) postLocalInstanceActionStop(ctx echo.Context, namespace string, kind naming.Kind, name string, params api.PostInstanceActionStopParams) error {
 	if v, err := assertGrant(ctx, rbac.NewGrant(rbac.RoleOperator, namespace), rbac.NewGrant(rbac.RoleAdmin, namespace), rbac.GrantRoot); !v {
 		return err
 	}
@@ -68,7 +67,7 @@ func (a *DaemonApi) postLocalInstanceActionStop(ctx echo.Context, namespace stri
 	if sid, err := a.apiExec(ctx, p, requesterSid, args, log); err != nil {
 		return JSONProblemf(ctx, http.StatusInternalServerError, "", "%s", err)
 	} else {
-		return ctx.JSON(http.StatusOK, api.InstanceActionAccepted{SessionId: sid})
+		return ctx.JSON(http.StatusOK, api.InstanceActionAccepted{SessionID: sid})
 	}
 
 }

@@ -46,7 +46,14 @@ func TestHelperProcess(t *testing.T) {
 	case strings.Contains(cmd, "succeedWithOut"):
 		data := check.ResultSet{
 			Data: []check.Result{
-				{"group1", cmd, "path/" + cmd, "1", "count", 2},
+				{
+					DriverGroup: "group1",
+					DriverName:  cmd,
+					Path:        "path/" + cmd,
+					Instance:    "1",
+					Unit:        "count",
+					Value:       2,
+				},
 			},
 		}
 		outB, err := json.Marshal(data)
@@ -55,8 +62,17 @@ func TestHelperProcess(t *testing.T) {
 		}
 		out = string(outB)
 	case cmd == "failWithCorrectOut":
-		data := check.ResultSet{Data: []check.Result{
-			{"group1", cmd, "path/" + cmd, "1", "count", 2}},
+		data := check.ResultSet{
+			Data: []check.Result{
+				{
+					DriverGroup: "group1",
+					DriverName:  cmd,
+					Path:        "path/" + cmd,
+					Instance:    "1",
+					Unit:        "count",
+					Value:       2,
+				},
+			},
 		}
 		outB, err := json.Marshal(data)
 		if err != nil {
@@ -82,7 +98,7 @@ func TestHelperProcess(t *testing.T) {
 type fakeChecker struct {
 	DriverGroup string
 	DriverName  string
-	Ids         []string
+	IDs         []string
 	Unit        string
 }
 
@@ -91,7 +107,7 @@ func (t fakeChecker) Check(objs []interface{}) (*check.ResultSet, error) {
 	if strings.Contains(t.DriverGroup, "error") {
 		return &check.ResultSet{}, fmt.Errorf("something wrong happen")
 	}
-	for _, id := range t.Ids {
+	for _, id := range t.IDs {
 		results = append(results, check.Result{
 			DriverGroup: t.DriverGroup,
 			DriverName:  t.DriverName,
@@ -111,19 +127,19 @@ func TestRunnerDo(t *testing.T) {
 	checker1 = &fakeChecker{
 		DriverGroup: "checker1Grp",
 		DriverName:  "checker1Drv",
-		Ids:         []string{"a", "b"},
+		IDs:         []string{"a", "b"},
 		Unit:        "",
 	}
 	checker2 = &fakeChecker{
 		DriverGroup: "checker2Grp",
 		DriverName:  "checker2Drv",
-		Ids:         []string{"a"},
+		IDs:         []string{"a"},
 		Unit:        "",
 	}
 	errorChecker = &fakeChecker{
 		DriverGroup: "error",
 		DriverName:  "checker",
-		Ids:         []string{"a"},
+		IDs:         []string{"a"},
 		Unit:        "",
 	}
 	cases := []struct {

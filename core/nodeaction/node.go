@@ -216,10 +216,17 @@ func human(r actionrouter.Result) string {
 	return s
 }
 
+func (t T) HasLocal() bool {
+	return t.LocalFunc != nil
+}
+
 func (t T) DoLocal() error {
 	results := make([]actionrouter.Result, 0)
 	resultQ := make(chan actionrouter.Result)
 	ctx := context.Background()
+	if t.LocalFunc == nil {
+		return fmt.Errorf("local node action is not implemented")
+	}
 	t.nodeDo(ctx, resultQ, hostname.Hostname(), func(_ context.Context, nodename string) (any, error) { return t.LocalFunc() })
 	result := <-resultQ
 	results = append(results, result)
@@ -350,7 +357,7 @@ func (t T) DoAsync() error {
 
 		var orchestrationQueued api.OrchestrationQueued
 		if err := json.Unmarshal(b, &orchestrationQueued); err == nil {
-			fmt.Println(orchestrationQueued.OrchestrationId)
+			fmt.Println(orchestrationQueued.OrchestrationID)
 		} else {
 			fmt.Fprintln(os.Stderr, err)
 		}
@@ -416,7 +423,7 @@ func (t T) DoRemote() error {
 		t.nodeDo(ctx, resultQ, nodename, func(ctx context.Context, nodename string) (any, error) {
 			return t.RemoteFunc(ctx, nodename)
 		})
-		todo += 1
+		todo++
 	}
 	if todo == 0 {
 		return nil
@@ -432,7 +439,7 @@ func (t T) DoRemote() error {
 			errs = errors.New("remote action error")
 		}
 		results = append(results, result)
-		done += 1
+		done++
 		if done >= todo {
 			break
 		}

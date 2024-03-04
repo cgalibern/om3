@@ -32,7 +32,7 @@ type (
 		data    Data
 		modules Modules
 	}
-	ModuleActions []ModuleAction
+	ModuleActions []*ModuleAction
 	ModuleAction  struct {
 		Action   Action
 		Module   string
@@ -275,8 +275,8 @@ func (t Run) rsetIsExplicitViaModuleset(rset Ruleset) bool {
 	return rset.Filter == "explicit attachment via moduleset"
 }
 
-func (t *Run) autoModuleExec(mod *Module, action Action) (ModuleAction, error) {
-	ma := ModuleAction{
+func (t *Run) autoModuleExec(mod *Module, action Action) (*ModuleAction, error) {
+	ma := &ModuleAction{
 		Action:  action,
 		Module:  mod.Name(),
 		BeginAt: time.Now(),
@@ -291,7 +291,7 @@ func (t *Run) autoModuleExec(mod *Module, action Action) (ModuleAction, error) {
 	vars := rset.Vars
 	sort.Sort(vars)
 	for i, v := range vars {
-		ret := t.autoModuleVarExec(mod, action, v, env, &ma)
+		ret := t.autoModuleVarExec(mod, action, v, env, ma)
 		switch ret {
 		case ExitCodeOk:
 		case ExitCodeNA:
@@ -351,11 +351,11 @@ func (t *Run) objectExec(action Action, v Var, env []string, ma *ModuleAction) i
 	return cmd.ExitCode()
 }
 
-func (t *Run) moduleExec(mod *Module, action Action) (ModuleAction, error) {
+func (t *Run) moduleExec(mod *Module, action Action) (*ModuleAction, error) {
 	if mod.path == "" {
 		return t.autoModuleExec(mod, action)
 	}
-	ma := ModuleAction{
+	ma := &ModuleAction{
 		Action:  action,
 		Module:  mod.Name(),
 		BeginAt: time.Now(),
@@ -425,7 +425,7 @@ func (t Run) Push() error {
 
 func (t *Run) moduleAction(mod *Module, action Action) error {
 	var (
-		ma  ModuleAction
+		ma  *ModuleAction
 		err error
 	)
 	if t.Force {
@@ -492,11 +492,11 @@ func (t Run) Stat() RunStat {
 	for _, x := range m {
 		switch x {
 		case 0:
-			stat.Ok += 1
+			stat.Ok++
 		case 2:
-			stat.NA += 1
+			stat.NA++
 		default:
-			stat.Nok += 1
+			stat.Nok++
 		}
 	}
 	stat.Total = len(m)
@@ -517,7 +517,7 @@ func (t Run) Render() string {
 	return buff
 }
 
-func (t ModuleAction) Status() string {
+func (t *ModuleAction) Status() string {
 	switch t.ExitCode {
 	case 0:
 		return rawconfig.Colorize.Optimal("ok")
@@ -528,7 +528,7 @@ func (t ModuleAction) Status() string {
 	}
 }
 
-func (t ModuleAction) StatusAndExitCode() string {
+func (t *ModuleAction) StatusAndExitCode() string {
 	switch t.ExitCode {
 	case 0:
 		return rawconfig.Colorize.Optimal("ok")
@@ -541,8 +541,18 @@ func (t ModuleAction) StatusAndExitCode() string {
 	}
 }
 
-func (t ModuleAction) Duration() time.Duration {
+func (t *ModuleAction) Duration() time.Duration {
 	return t.EndAt.Sub(t.BeginAt)
+}
+
+func (t *ModuleAction) Render() string {
+	buff := fmt.Sprintf("  - Action:   %s\n", rawconfig.Colorize.Bold(t.Action))
+	buff += fmt.Sprintf("    Status:   %s\n", t.StatusAndExitCode())
+	buff += fmt.Sprintf("    Duration: %s\n", t.Duration())
+	buff += fmt.Sprintf("    Log:\n")
+	buff += t.Log.Render()
+	return buff
+
 }
 
 func (t ModuleActions) Render() string {
@@ -556,14 +566,4 @@ func (t ModuleActions) Render() string {
 		buff += ma.Render()
 	}
 	return buff
-}
-
-func (t ModuleAction) Render() string {
-	buff := fmt.Sprintf("  - Action:   %s\n", rawconfig.Colorize.Bold(t.Action))
-	buff += fmt.Sprintf("    Status:   %s\n", t.StatusAndExitCode())
-	buff += fmt.Sprintf("    Duration: %s\n", t.Duration())
-	buff += fmt.Sprintf("    Log:\n")
-	buff += t.Log.Render()
-	return buff
-
 }

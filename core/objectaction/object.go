@@ -313,6 +313,10 @@ func rsHumanRender(rs []actionrouter.Result) string {
 	return s
 }
 
+func (t T) HasLocal() bool {
+	return t.LocalFunc != nil
+}
+
 func (t T) DoLocal() error {
 	if t.LocalFunc == nil {
 		return fmt.Errorf("local mode is not available (use 'om' on a cluster node or 'ox --node ...')")
@@ -367,7 +371,7 @@ func (t T) DoLocal() error {
 		if result.Error != nil {
 			errs = errors.Join(errs, result.Error)
 		}
-		done += 1
+		done++
 		if done >= todo {
 			break
 		}
@@ -405,7 +409,7 @@ func (t T) DoAsync() error {
 	type (
 		result struct {
 			Path            string    `json:"path"`
-			OrchestrationId uuid.UUID `json:"orchestration_id,omitempty"`
+			OrchestrationID uuid.UUID `json:"orchestration_id,omitempty"`
 			Error           error     `json:"error,omitempty"`
 		}
 		results []result
@@ -687,7 +691,7 @@ func (t T) DoAsync() error {
 			var orchestrationQueued api.OrchestrationQueued
 			if err := json.Unmarshal(b, &orchestrationQueued); err == nil {
 				r = result{
-					OrchestrationId: orchestrationQueued.OrchestrationId,
+					OrchestrationID: orchestrationQueued.OrchestrationID,
 					Path:            p.String(),
 				}
 			} else {
@@ -703,9 +707,9 @@ func (t T) DoAsync() error {
 		s := ""
 		for _, r := range rs {
 			if r.Error != nil {
-				s += fmt.Sprintf("%s %s %s\n", r.OrchestrationId, r.Path, rawconfig.Colorize.Error(r.Error))
+				s += fmt.Sprintf("%s %s %s\n", r.OrchestrationID, r.Path, rawconfig.Colorize.Error(r.Error))
 			} else {
-				s += fmt.Sprintf("%s %s\n", r.OrchestrationId, r.Path)
+				s += fmt.Sprintf("%s %s\n", r.OrchestrationID, r.Path)
 			}
 		}
 		return s
@@ -736,6 +740,10 @@ func (t T) DoAsync() error {
 // DoRemote posts the action to a peer node agent API, for synchronous
 // execution.
 func (t T) DoRemote() error {
+	if t.RemoteFunc == nil {
+		return fmt.Errorf("no remote function defined")
+	}
+
 	c, err := client.New(client.WithURL(t.Server), client.WithTimeout(0))
 	if err != nil {
 		return err
@@ -800,7 +808,7 @@ func (t T) DoRemote() error {
 	}
 
 	for _, item := range resp.JSON200.Items {
-		for n, _ := range item.Data.Instances {
+		for n := range item.Data.Instances {
 			p, err := naming.ParsePath(item.Meta.Object)
 			if err != nil {
 				return err
@@ -811,7 +819,7 @@ func (t T) DoRemote() error {
 			t.instanceDo(ctx, resultQ, n, p, func(ctx context.Context, n string, p naming.Path) (any, error) {
 				return t.RemoteFunc(ctx, p, n)
 			})
-			todo += 1
+			todo++
 		}
 	}
 	if todo == 0 {
@@ -828,7 +836,7 @@ func (t T) DoRemote() error {
 			errs = errors.New("remote action error")
 		}
 		results = append(results, result)
-		done += 1
+		done++
 		if done >= todo {
 			break
 		}

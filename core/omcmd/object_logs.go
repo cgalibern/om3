@@ -68,7 +68,7 @@ func nodesFromPaths(c *client.T, selector string) ([]string, error) {
 		return nil, fmt.Errorf("%s", resp.Status())
 	}
 	for _, item := range resp.JSON200.Items {
-		for node, _ := range item.Data.Instances {
+		for node := range item.Data.Instances {
 			m[node] = nil
 		}
 	}
@@ -150,7 +150,6 @@ func (t *CmdObjectLogs) local(selStr string) error {
 			ev.Render(t.Output)
 		}
 	}
-	return nil
 }
 
 func (t *CmdObjectLogs) Run(selector, kind string) error {

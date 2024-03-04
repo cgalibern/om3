@@ -3,8 +3,10 @@
 package resdiskdrbd
 
 import (
-	"context"
+	// Necessary to use go:embed
 	_ "embed"
+
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -74,7 +76,7 @@ type (
 		Addr   string
 		Device string
 		Disk   string
-		NodeId int
+		NodeID int
 	}
 )
 
@@ -115,7 +117,7 @@ func (t T) Name() string {
 
 func (t T) Info(ctx context.Context) (resource.InfoKeys, error) {
 	m := resource.InfoKeys{
-		{"res", t.Res},
+		{Key: "res", Value: t.Res},
 	}
 	return m, nil
 }
@@ -437,7 +439,7 @@ func (t T) makeConfRes(allocations map[string]api.DRBDAllocation) (ConfRes, erro
 		Hosts: make([]ConfResOn, 0),
 	}
 	obj := t.GetObject().(object.Configurer)
-	for nodeId, nodename := range t.Nodes {
+	for nodeID, nodename := range t.Nodes {
 		var (
 			disk, addr, ipVer string
 			port              int
@@ -450,13 +452,13 @@ func (t T) makeConfRes(allocations map[string]api.DRBDAllocation) (ConfRes, erro
 			return ConfRes{}, fmt.Errorf("drbd allocation for node %s has expired", nodename)
 		}
 		device := fmt.Sprintf("/dev/drbd%d", allocation.Minor)
-		if s, err := obj.Config().EvalAs(key.T{t.RID(), "disk"}, nodename); err != nil {
+		if s, err := obj.Config().EvalAs(key.T{Section: t.RID(), Option: "disk"}, nodename); err != nil {
 			return res, err
 		} else {
 			disk = s.(string)
 		}
 
-		if s, err := obj.Config().EvalAs(key.T{t.RID(), "addr"}, nodename); err != nil || addr == "" {
+		if s, err := obj.Config().EvalAs(key.T{Section: t.RID(), Option: "addr"}, nodename); err != nil || addr == "" {
 			if ip, err := t.getNodeIP(nodename); err != nil {
 				return res, err
 			} else {
@@ -466,7 +468,7 @@ func (t T) makeConfRes(allocations map[string]api.DRBDAllocation) (ConfRes, erro
 			addr = s.(string)
 		}
 
-		if i, err := obj.Config().EvalAs(key.T{t.RID(), "port"}, nodename); err != nil {
+		if i, err := obj.Config().EvalAs(key.T{Section: t.RID(), Option: "port"}, nodename); err != nil {
 			// EvalAs will error because the port kw has no default
 			port = allocation.Port
 		} else {
@@ -487,7 +489,7 @@ func (t T) makeConfRes(allocations map[string]api.DRBDAllocation) (ConfRes, erro
 			Addr:   fmt.Sprintf("%s %s:%d", ipVer, ip, port),
 			Disk:   disk,
 			Device: device,
-			NodeId: nodeId,
+			NodeID: nodeID,
 		}
 		res.Hosts = append(res.Hosts, host)
 	}
@@ -627,23 +629,23 @@ func (t T) writeConfig(ctx context.Context) error {
 
 func (t T) sendConfig(b []byte, allocations map[string]api.DRBDAllocation) error {
 	for _, nodename := range t.Nodes {
-		var allocationId uuid.UUID
+		var allocationID uuid.UUID
 		if nodename == hostname.Hostname() {
 			continue
 		}
 		if a, ok := allocations[nodename]; ok {
-			allocationId = a.Id
+			allocationID = a.ID
 		} else {
 			return fmt.Errorf("allocation id for node %s not found", nodename)
 		}
-		if err := t.sendConfigToNode(nodename, allocationId, b); err != nil {
+		if err := t.sendConfigToNode(nodename, allocationID, b); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (t T) sendConfigToNode(nodename string, allocationId uuid.UUID, b []byte) error {
+func (t T) sendConfigToNode(nodename string, allocationID uuid.UUID, b []byte) error {
 	c, err := client.New()
 	if err != nil {
 		return err
@@ -652,7 +654,7 @@ func (t T) sendConfigToNode(nodename string, allocationId uuid.UUID, b []byte) e
 		Name: t.Res,
 	}
 	body := api.PostNodeDRBDConfigRequest{
-		AllocationId: allocationId,
+		AllocationID: allocationID,
 		Data:         b,
 	}
 	resp, err := c.PostNodeDRBDConfigWithResponse(context.Background(), nodename, &params, body)
