@@ -4,7 +4,7 @@
 
 **_NOTE:_** This project is the golang port and next release of https://github.com/opensvc/opensvc.
 
-> **_NOTE:_** General Availability is expected Q1 2025
+> **_NOTE:_** General Availability is expected Q1 2026
 
 A cluster orchestrator with a distinctive feature set
 =====================================================
