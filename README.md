@@ -11,6 +11,7 @@ orchestration on every node.
 
 ## Features
 
+
 * Targeted at 1-32 node clusters, human-readable service configurations and status
 * Highly redundant cluster communications (unicast, multicast, disk, third-site relay)
 * Deploy application stacks on containers, persistent or volatile volumes, or
